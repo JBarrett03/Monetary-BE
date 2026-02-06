@@ -59,45 +59,59 @@ def getUsers():
 
 @app.route("/api/v1.0/users/<string:id>", methods=["GET"])
 def getUser(id):
-    return make_response(jsonify(users[id]), 200)
-
+    if id in users:
+        return make_response(jsonify(users[id]), 200)
+    return make_response(jsonify({ "error": "Invalid user ID" }), 404)
+    
 @app.route("/api/v1.0/users", methods=['POST'])
 def createUser():
-    next_id = str(uuid.uuid4())
-    new_user = {
-        "id": next_id,
-        "firstName": request.json["firstName"],
-        "lastName": request.json["lastName"],
-        "email": request.json["email"],
-        "password": request.json["password"],
-        "phone": request.json["phone"],
-        "address": request.json["address"],
-        "DOB": request.json["DOB"],
-        "admin": False,
-        "emailVerified": False,
-        "phoneVerified": False,
-        "status": "active",
-        "createdAt": datetime.now(UTC).isoformat(),
-        "lastLoginAt": datetime.now(UTC).isoformat()
-    }
-    users[next_id] = new_user
-    return make_response(jsonify({ next_id: new_user }), 201)
+    if "firstName" in request.json and "lastName" in request.json and "email" in request.json and "password" in request.json and "phone" in request.json and "address" in request.json and "DOB" in request.json:
+        next_id = str(uuid.uuid4())
+        new_user = {
+            "id": next_id,
+            "firstName": request.json["firstName"],
+            "lastName": request.json["lastName"],
+            "email": request.json["email"],
+            "password": request.json["password"],
+            "phone": request.json["phone"],
+            "address": request.json["address"],
+            "DOB": request.json["DOB"],
+            "admin": False,
+            "emailVerified": False,
+            "phoneVerified": False,
+            "status": "active",
+            "createdAt": datetime.now(UTC).isoformat(),
+            "lastLoginAt": datetime.now(UTC).isoformat()
+        }
+        users[next_id] = new_user
+        return make_response(jsonify({ next_id: new_user }), 201)
+    else:
+        return make_response(jsonify({ "error": "Missing required fields" }), 404)
 
 @app.route("/api/v1.0/users/<string:id>", methods=['PUT'])
 def updateUser(id):
-    users[id]["firstName"] = request.json["firstName"]
-    users[id]["lastName"] = request.json["lastName"]
-    users[id]["email"] = request.json["email"]
-    users[id]["phone"] = request.json["phone"]
-    users[id]["address"] = request.json["address"]
-    users[id]["DOB"] = request.json["DOB"]
-    return make_response(jsonify({ id: users[id] }), 200)
+    if id not in users:
+        return make_response(jsonify({ "error": "Invalid user ID" }), 404)
+    else:
+        if "firstName" in request.json and "lastName" in request.json and "email" in request.json and "phone" in request.json and "address" in request.json and "DOB" in request.json:
+            users[id]["firstName"] = request.json["firstName"]
+            users[id]["lastName"] = request.json["lastName"]
+            users[id]["email"] = request.json["email"]
+            users[id]["phone"] = request.json["phone"]
+            users[id]["address"] = request.json["address"]
+            users[id]["DOB"] = request.json["DOB"]
+            return make_response(jsonify({ id: users[id] }), 200)
+        else:
+            return make_response(jsonify({ "error": "Missing required fields" }), 404)
 
 
 @app.route("/api/v1.0/users/<string:id>", methods=['DELETE'])
 def deleteUser(id):
-    del users[id]
-    return make_response(jsonify( {} ), 204)
+    if id in users:
+        del users[id]
+        return make_response(jsonify( {} ), 204)
+    else:
+        return make_response(jsonify({ "error": "Invalid user ID" }), 404)
 
 if __name__ == '__main__':
     app.run(debug=True)
