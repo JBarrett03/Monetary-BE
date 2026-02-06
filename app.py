@@ -1,68 +1,69 @@
 from datetime import UTC, datetime
 from flask import Flask, jsonify, make_response, request
+import uuid, random
 
 app = Flask(__name__)
 
-users = [
-    {
-    "id": 1,
-    "firstName": "John",
-    "lastName": "Doe",
-    "email": "john.doe@example.com",
-    "password": "password",
-    "phone": "123-456-7890",
-    "address": "123 Main St, Anytown, USA",
-    "DOB": "1990-01-01",
-    "emailVerified": True,
-    "phoneVerified": False,
-    "status": "active",
-    "createdAt": "2025-01-22T10:00:00Z",
-    "lastLoginAt": "2025-01-22T10:00:00Z"
-    },
-    {
-    "id": 2,
-    "firstName": "Jane",
-    "lastName": "Smith",
-    "email": "jane.smith@example.com",
-    "password": "password",
-    "phone": "123-456-7890",
-    "address": "123 Main St, Anytown, USA",
-    "DOB": "1990-01-01",
-    "emailVerified": True,
-    "phoneVerified": True,
-    "status": "active",
-    "createdAt": "2025-01-22T10:00:00Z",
-    "lastLoginAt": "2025-01-22T10:00:00Z"
-    },
-    {
-    "id": 3,
-    "firstName": "Bob",
-    "lastName": "Johnson",
-    "email": "bob.johnson@example.com",
-    "password": "password",
-    "phone": "123-456-7890",
-    "address": "123 Main St, Anytown, USA",
-    "DOB": "1990-01-01",
-    "emailVerified": False,
-    "phoneVerified": True,
-    "status": "active",
-    "createdAt": "2025-01-22T10:00:00Z",
-    "lastLoginAt": "2025-01-22T10:00:00Z"
-    }
-]
+users = {}
+
+def generate_dummy_data():
+    firstNames = ["John", "Jane", "Alice", "Bob", "Charlie"]
+    lastNames = ["Doe", "Smith", "Johnson", "Brown", "Davis"]
+    towns = [
+        "Coleraine", "Banbridge", "Belfast", "Lisburn",
+        "Ballymena", "Derry", "Newry", "Enniskillen",
+        "Omagh", "Ballymoney"
+    ]
+    
+    user_dict = {}
+    
+    for i in range(100):
+        userId = str(uuid.uuid4())
+        firstName = random.choice(firstNames)
+        lastName = random.choice(lastNames)
+        email = f"{firstName.lower()}.{lastName.lower()}@example.com"
+        password = "password123"
+        phone = f"+1-555-{random.randint(1000, 9999)}"
+        address = f"{random.randint(1, 999)} {random.choice(towns)} Street"
+        DOB = f"{random.randint(1950, 2000)}-{random.randint(1, 12):02d}-{random.randint(1, 28):02d}"
+        admin = False
+        emailVerified = random.choice([True, False])
+        phoneVerified = random.choice([True, False])
+        status = "active"
+        createdAt = datetime.now(UTC).isoformat()
+        lastLoginAt = datetime.now(UTC).isoformat()
+        user_dict[userId] = {
+            "id": userId,
+            "firstName": firstName,
+            "lastName": lastName,
+            "email": email,
+            "password": password,
+            "phone": phone,
+            "address": address,
+            "DOB": DOB,
+            "admin": admin,
+            "emailVerified": emailVerified,
+            "phoneVerified": phoneVerified,
+            "status": status,
+            "createdAt": createdAt,
+            "lastLoginAt": lastLoginAt
+        }
+    return user_dict
+
+users = generate_dummy_data()
+
 
 @app.route("/api/v1.0/users", methods=["GET"])
 def getUsers():
     return make_response(jsonify(users), 200)
 
-@app.route("/api/v1.0/users/<int:id>", methods=["GET"])
+@app.route("/api/v1.0/users/<string:id>", methods=["GET"])
 def getUser(id):
-    data_to_return = [user for user in users if user["id"] == id]
-    return make_response(jsonify(data_to_return), 200)
+    return make_response(jsonify(users[id]), 200)
 
 @app.route("/api/v1.0/users", methods=['POST'])
 def createUser():
-    next_id = users[-1]["id"] + 1
+    next_id = str(uuid.uuid4())
     new_user = {
         "id": next_id,
         "firstName": request.json["firstName"],
@@ -79,29 +80,24 @@ def createUser():
         "createdAt": datetime.now(UTC).isoformat(),
         "lastLoginAt": datetime.now(UTC).isoformat()
     }
-    users.append(new_user)
-    return make_response(jsonify(new_user), 201)
+    users[next_id] = new_user
+    return make_response(jsonify({ next_id: new_user }), 201)
 
-@app.route("/api/v1.0/users/<int:id>", methods=['PUT'])
+@app.route("/api/v1.0/users/<string:id>", methods=['PUT'])
 def updateUser(id):
-    for user in users:
-        if user["id"] == id:
-            user["firstName"] = request.json["firstName"]
-            user["lastName"] = request.json["lastName"]
-            user["email"] = request.json["email"]
-            user["phone"] = request.json["phone"]
-            user["address"] = request.json["address"]
-            user["DOB"] = request.json["DOB"]
-            break
-    return make_response(jsonify(user), 200)
+    users[id]["firstName"] = request.json["firstName"]
+    users[id]["lastName"] = request.json["lastName"]
+    users[id]["email"] = request.json["email"]
+    users[id]["phone"] = request.json["phone"]
+    users[id]["address"] = request.json["address"]
+    users[id]["DOB"] = request.json["DOB"]
+    return make_response(jsonify({ id: users[id] }), 200)
 
-@app.route("/api/v1.0/users/<int:id>", methods=['DELETE'])
+
+@app.route("/api/v1.0/users/<string:id>", methods=['DELETE'])
 def deleteUser(id):
-    for user in users:
-        if user["id"] == id:
-            users.remove(user)
-            break
-    return make_response(jsonify(users), 200)
+    del users[id]
+    return make_response(jsonify( {} ), 204)
 
 if __name__ == '__main__':
     app.run(debug=True)
