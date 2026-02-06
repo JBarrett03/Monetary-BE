@@ -39,28 +39,29 @@ def getUsers():
     data_to_return = []
     for user in users.find():
         user["_id"] = str(user["_id"])
+        user.pop("password", None)
         data_to_return.append(user)
     return make_response(jsonify(data_to_return), 200)
 
-@jwt_required
 @app.route("/api/v1.0/users/<string:id>", methods=["GET"])
+@jwt_required
 def getUser(id):
     user = users.find_one({ "_id": ObjectId(id) })
     if user is not None:
         user["_id"] = str(user["_id"])
+        user.pop("password", None)
         return make_response(jsonify(user), 200)
     else:
         return make_response(jsonify({ "error": "Invalid user ID" }), 404)
     
 @app.route("/api/v1.0/users", methods=['POST'])
 def createUser():
-    if "firstName" in request.json and "lastName" in request.json and "email" in request.json and "password" in request.json and "phone" in request.json and "address" in request.json and "DOB" in request.json:
-        # next_id = str(uuid.uuid4())
+    if "firstName" in request.json and "lastName" in request.json and "username" in request.json and "password" in request.json and "phone" in request.json and "address" in request.json and "DOB" in request.json:
         new_user = {
             "firstName": request.json["firstName"],
             "lastName": request.json["lastName"],
-            "email": request.json["email"],
-            "password": request.json["password"],
+            "username": request.json["username"],
+            "password": bcrypt.hashpw(request.json["password"].encode(), bcrypt.gensalt()),
             "phone": request.json["phone"],
             "address": request.json["address"],
             "DOB": request.json["DOB"],
@@ -79,14 +80,14 @@ def createUser():
 
 @app.route("/api/v1.0/users/<string:id>", methods=['PUT'])
 def updateUser(id):
-    if "firstName" in request.json and "lastName" in request.json and "email" in request.json and "phone" in request.json and "address" in request.json and "DOB" in request.json:
+    if "firstName" in request.json and "lastName" in request.json and "username" in request.json and "phone" in request.json and "address" in request.json and "DOB" in request.json:
         result = users.update_one({
             "_id": ObjectId(id)
         }, {
             "$set": {
                 "firstName": request.json["firstName"],
                 "lastName": request.json["lastName"],
-                "email": request.json["email"],
+                "username": request.json["username"],
                 "phone": request.json["phone"],
                 "address": request.json["address"],
                 "DOB": request.json["DOB"]
@@ -122,7 +123,7 @@ def login():
                     'exp': datetime.datetime.now(datetime.UTC) + datetime.timedelta(minutes=30)
                     },
                     app.config['SECRET_KEY'],
-                    algorithms='HS256')
+                    algorithm='HS256')
                 return make_response(jsonify({ "token": token }), 200)
             else:
                 return make_response(jsonify({ "message": "Bad password" }), 401)
