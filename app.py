@@ -1,4 +1,5 @@
-from flask import Flask, jsonify, make_response
+from datetime import UTC, datetime
+from flask import Flask, jsonify, make_response, request
 
 app = Flask(__name__)
 
@@ -58,6 +59,29 @@ def getUsers():
 def getUser(id):
     data_to_return = [user for user in users if user["id"] == id]
     return make_response(jsonify(data_to_return), 200)
+
+@app.route("/api/v1.0/users", methods=['POST'])
+def createUser():
+    next_id = users[-1]["id"] + 1
+    new_user = {
+        "id": next_id,
+        "firstName": request.json["firstName"],
+        "lastName": request.json["lastName"],
+        "email": request.json["email"],
+        "password": request.json["password"],
+        "phone": request.json["phone"],
+        "address": request.json["address"],
+        "DOB": request.json["DOB"],
+        "admin": False,
+        "emailVerified": False,
+        "phoneVerified": False,
+        "status": "active",
+        "createdAt": datetime.now(UTC).isoformat(),
+        "lastLoginAt": datetime.now(UTC).isoformat()
+    }
+    users.append(new_user)
+    return make_response(jsonify(new_user), 201)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
