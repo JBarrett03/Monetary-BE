@@ -9,7 +9,7 @@ accounts = globals.db.accounts
 users = globals.db.users
 
 @accounts_bp.route("/api/v1.0/users/<string:userId>/accounts", methods=['GET'])
-def fetch_all_user_accounts(userId):
+def getAllUserAccounts(userId):
     if not ObjectId.is_valid(userId):
         return make_response(jsonify({ "error": "Invalid User Id" }), 400)
     
@@ -24,7 +24,7 @@ def fetch_all_user_accounts(userId):
     return make_response(jsonify(data_to_return), 200)
 
 @accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>", methods=['GET'])
-def fetch_user_account(userId, accountId):
+def getUserAccount(userId, accountId):
     if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
         return make_response(jsonify({ "error": "Invalid user Id or Account Id" }), 400)
     
@@ -38,7 +38,7 @@ def fetch_user_account(userId, accountId):
     return make_response(jsonify(account), 200)
 
 @accounts_bp.route("/api/v1.0/users/<string:userId>/accounts", methods=['POST'])
-def add_account(userId):
+def addAccount(userId):
     if not ObjectId.is_valid(userId):
         return make_response(jsonify({ "error": "Invalid User Id" }), 400)
     
@@ -66,7 +66,7 @@ def add_account(userId):
     return make_response(jsonify({"url": new_account_link}), 201)
 
 @accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>", methods=['POST'])
-def add_balance(userId, accountId):
+def addBalance(userId, accountId):
     if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
         return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
     
@@ -99,7 +99,7 @@ def add_balance(userId, accountId):
     return make_response(jsonify({ "newBalance": new_balance }), 200)
 
 @accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/order-accounts", methods=['PUT'])
-def save_account_order(userId):
+def saveAccountOrder(userId):
     if not ObjectId.is_valid(userId):
         return make_response(jsonify({ "error": "Invalid User Id" }), 400)
     
@@ -122,7 +122,7 @@ def save_account_order(userId):
     return make_response(jsonify({ "message": "Account order updated successfully" }), 200)
 
 @accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>", methods=['PUT'])
-def archive_account(userId, accountId):
+def archiveAccount(userId, accountId):
     if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
         return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
     
@@ -145,7 +145,7 @@ def archive_account(userId, accountId):
         return make_response(jsonify({ "error": "Account not found" }), 404)
     
 @accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/archived", methods=['GET'])
-def get_archived_accounts(userId):
+def getArchivedAccounts(userId):
     if not ObjectId.is_valid(userId):
         return make_response(jsonify({ "error": "Invalid User Id" }), 400)
     

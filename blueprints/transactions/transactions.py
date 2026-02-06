@@ -3,14 +3,14 @@ from datetime import datetime, UTC
 from bson import ObjectId
 import globals
 
-transactions_bp = Blueprint('transactions', __name__)
+transactions_bp = Blueprint('transactions_bp', __name__)
 
 transactions = globals.db.transactions
 accounts = globals.db.accounts
 users = globals.db.users
 
 @transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/transactions", methods=['GET'])
-def fetch_all_user_account_transactions(userId, accountId):
+def getAllTransactions(userId, accountId):
     if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
         return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
     
@@ -23,7 +23,7 @@ def fetch_all_user_account_transactions(userId, accountId):
     return make_response(jsonify(data_to_return), 200)
 
 @transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/transactions/<string:transactionId>", methods=['GET'])
-def fetch_user_account_transaction(userId, accountId, transactionId):
+def getTransaction(userId, accountId, transactionId):
     if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId) or not ObjectId.is_valid(transactionId):
         return make_response(jsonify({ "error": "Invalid User Id, Account Id or Transaction Id" }), 400)
     
@@ -37,7 +37,7 @@ def fetch_user_account_transaction(userId, accountId, transactionId):
     return make_response(jsonify(transaction), 200)
 
 @transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/transactions", methods=['POST'])
-def add_transaction(userId, accountId):
+def addTransaction(userId, accountId):
     if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
         return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
     
