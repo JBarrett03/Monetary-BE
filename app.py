@@ -13,6 +13,20 @@ client = MongoClient("mongodb://127.0.0.1:27017")
 db = client.monetary    # Select the database
 users = db.users        # Select the collection
 
+def jwt_required(func):
+    @wraps(func)
+    def jwt_required_wrapper(*args, **kwargs):
+        token = None
+        if 'x-access-token' in request.headers:
+            token = request.headers['x-access-token']
+        
+        try:
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms='HS256')
+        except:
+            return make_response(jsonify({ "message": "Token is invalid" }), 401)
+        return func(*args, **kwargs)
+    return jwt_required_wrapper
+
 # App functionality
 
 @app.route("/api/v1.0/users", methods=["GET"])
@@ -23,6 +37,7 @@ def getUsers():
         data_to_return.append(user)
     return make_response(jsonify(data_to_return), 200)
 
+@jwt_required
 @app.route("/api/v1.0/users/<string:id>", methods=["GET"])
 def getUser(id):
     user = users.find_one({ "_id": ObjectId(id) })
