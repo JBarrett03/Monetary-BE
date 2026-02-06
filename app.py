@@ -4,9 +4,7 @@ app = Flask(__name__)
 
 users = [
     {
-    "_id": {
-        "$oid": "697540596bd2ce0e5cf96566"
-    },
+    "id": 1,
     "firstName": "John",
     "lastName": "Doe",
     "email": "john.doe@example.com",
@@ -21,9 +19,7 @@ users = [
     "lastLoginAt": "2025-01-22T10:00:00Z"
     },
     {
-    "_id": {
-        "$oid": "697540596bd2ce0e5cf96567"
-    },
+    "id": 2,
     "firstName": "Jane",
     "lastName": "Smith",
     "email": "jane.smith@example.com",
@@ -38,9 +34,7 @@ users = [
     "lastLoginAt": "2025-01-22T10:00:00Z"
     },
     {
-    "_id": {
-        "$oid": "697540596bd2ce0e5cf96568"
-    },
+    "id": 3,
     "firstName": "Bob",
     "lastName": "Johnson",
     "email": "bob.johnson@example.com",
@@ -59,6 +53,11 @@ users = [
 @app.route("/api/v1.0/users", methods=["GET"])
 def getUsers():
     return make_response(jsonify(users), 200)
+
+@app.route("/api/v1.0/users/<int:id>", methods=["GET"])
+def getUser(id):
+    data_to_return = [user for user in users if user["id"] == id]
+    return make_response(jsonify(data_to_return), 200)
 
 if __name__ == '__main__':
     app.run(debug=True)
