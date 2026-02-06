@@ -95,5 +95,13 @@ def updateUser(id):
             break
     return make_response(jsonify(user), 200)
 
+@app.route("/api/v1.0/users/<int:id>", methods=['DELETE'])
+def deleteUser(id):
+    for user in users:
+        if user["id"] == id:
+            users.remove(user)
+            break
+    return make_response(jsonify(users), 200)
+
 if __name__ == '__main__':
     app.run(debug=True)
