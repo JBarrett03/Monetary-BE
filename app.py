@@ -82,6 +82,18 @@ def createUser():
     users.append(new_user)
     return make_response(jsonify(new_user), 201)
 
+@app.route("/api/v1.0/users/<int:id>", methods=['PUT'])
+def updateUser(id):
+    for user in users:
+        if user["id"] == id:
+            user["firstName"] = request.json["firstName"]
+            user["lastName"] = request.json["lastName"]
+            user["email"] = request.json["email"]
+            user["phone"] = request.json["phone"]
+            user["address"] = request.json["address"]
+            user["DOB"] = request.json["DOB"]
+            break
+    return make_response(jsonify(user), 200)
 
 if __name__ == '__main__':
     app.run(debug=True)
