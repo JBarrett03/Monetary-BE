@@ -5,6 +5,7 @@ from bson import ObjectId
 import jwt
 import datetime
 from functools import wraps
+import bcrypt
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'mysecret'
@@ -12,6 +13,7 @@ app.config['SECRET_KEY'] = 'mysecret'
 client = MongoClient("mongodb://127.0.0.1:27017")
 db = client.monetary    # Select the database
 users = db.users        # Select the collection
+blacklist = db.blacklist
 
 def jwt_required(func):
     @wraps(func)
@@ -24,6 +26,9 @@ def jwt_required(func):
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms='HS256')
         except:
             return make_response(jsonify({ "message": "Token is invalid" }), 401)
+        bl_token = blacklist.find_one({ "token": token })
+        if bl_token is not None:
+            return make_response(jsonify({ "message": "Token has been cancelled" }), 401)
         return func(*args, **kwargs)
     return jwt_required_wrapper
 
@@ -106,15 +111,31 @@ def deleteUser(id):
 @app.route("/api/v1.0/login", methods=['GET'])
 def login():
     auth = request.authorization
-    if auth and auth.password == 'password':
-        token = jwt.encode({
-            'user': auth.username,
-            'exp': datetime.datetime.now(datetime.UTC) + datetime.timedelta(minutes=30)
-            },
-            app.config['SECRET_KEY'],
-            algorithm='HS256')
-        return make_response(jsonify({ 'token': token }), 200)
-    return make_response('Could not verify', 401, { 'WWW-Authenticate': 'Basic realm = "Login required"' })
+    
+    if auth:
+        user = users.find_one({ "username": auth.username })
+        if user is not None:
+            if bcrypt.checkpw(bytes(auth.password, 'UTF-8'), user["password"]):
+                token = jwt.encode({
+                    'user': auth.username,
+                    'admin': user['admin'],
+                    'exp': datetime.datetime.now(datetime.UTC) + datetime.timedelta(minutes=30)
+                    },
+                    app.config['SECRET_KEY'],
+                    algorithms='HS256')
+                return make_response(jsonify({ "token": token }), 200)
+            else:
+                return make_response(jsonify({ "message": "Bad password" }), 401)
+        else:
+            return make_response(jsonify({ "message": "Bad username" }), 401)
+    return make_response(jsonify({ "message": "Authentication required..." }), 401)
+
+@app.route("/api/v1.0/logout", methods=['GET'])
+def logout():
+    token = request.headers['x-access-token']
+    blacklist.insert_one({ "token": token })
+    return make_response(jsonify({ "message": "Logout successful" }), 200)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
