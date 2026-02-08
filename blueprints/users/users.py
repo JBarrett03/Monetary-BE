@@ -1,7 +1,6 @@
 from flask import Blueprint, jsonify, make_response, request
 from datetime import UTC, datetime
 from bson import ObjectId
-import datetime
 import bcrypt
 import globals
 

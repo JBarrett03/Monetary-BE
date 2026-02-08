@@ -63,15 +63,15 @@ def addTransaction(userId, accountId):
         }
     )
     new_transaction = {
-    "accountId": ObjectId(accountId),
-    "type": request.form["type"],
-    "amount": amount,
-    "status": "completed",
-    "description": request.form["description"],
-    "merchant": request.form["merchant"],
-    "category": request.form["category"],
-    "balanceAfter": new_balance,
-    "createdAt": datetime.now(UTC).isoformat()
+        "accountId": ObjectId(accountId),
+        "type": request.form["type"],
+        "amount": amount,
+        "status": "completed",
+        "description": request.form["description"],
+        "merchant": request.form["merchant"],
+        "category": request.form["category"],
+        "balanceAfter": new_balance,
+        "createdAt": datetime.now(UTC).isoformat()
     }
     
     result = transactions.insert_one(new_transaction)
