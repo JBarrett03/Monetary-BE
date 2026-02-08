@@ -1,10 +1,16 @@
-from flask import Flask, make_response
+from flask import Flask
+from blueprints.users.users import users_bp
+from blueprints.accounts.accounts import accounts_bp
+from blueprints.transactions.transactions import transactions_bp
+from blueprints.auth.auth import auth_bp
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
+app.register_blueprint(users_bp)
+app.register_blueprint(accounts_bp)
+app.register_blueprint(transactions_bp)
+app.register_blueprint(auth_bp)
 
-@app.route("/", methods=['GET'])
-def index():
-    return make_response("<h1> Hello World </h1>", 200)
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)
