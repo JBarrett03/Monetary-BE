@@ -1,35 +1,33 @@
 from flask import Blueprint, jsonify, make_response, request
-from datetime import datetime
+from datetime import datetime, UTC
 import globals
 import jwt
-import bcrypt
-import globals
 
 auth_bp = Blueprint('auth_bp', __name__)
 users = globals.db.users
 blacklist = globals.db.blacklist
 
-@auth_bp.route("/api/v1.0/login", methods=['GET'])
+@auth_bp.route("/api/v1.0/login", methods=['POST'])
 def login():
-    auth = request.authorization
+    data = request.get_json()
     
-    if auth:
-        user = users.find_one({ "username": auth.username })
-        if user is not None:
-            if bcrypt.checkpw(bytes(auth.password, 'UTF-8'), user["password"]):
-                token = jwt.encode({
-                    'user': auth.username,
-                    'admin': user['admin'],
-                    'exp': datetime.datetime.now(datetime.UTC) + datetime.timedelta(minutes=30)
-                    },
-                    globals.secret_key,
-                    algorithm='HS256')
-                return make_response(jsonify({ "token": token }), 200)
-            else:
-                return make_response(jsonify({ "message": "Bad password" }), 401)
-        else:
-            return make_response(jsonify({ "message": "Bad username" }), 401)
-    return make_response(jsonify({ "message": "Authentication required..." }), 401)
+    if not data or "email" not in data or "password" not in data:
+        return make_response(jsonify({ "error": "Email and Password are required..." }), 400)
+    
+    user = users.find_one({ "email": data['email'] })
+    if not user:
+        return make_response(jsonify({ "error": "Invalid email or password..." }), 401)
+    
+    token = jwt.encode(
+        {
+            "userId": str(user["_id"]),
+            "admin": user["admin"],
+            "exp": datetime.now(UTC).timestamp() + 1800
+        },
+        globals.secret_key,
+        algorithm='HS256'
+    )
+    return make_response(jsonify({ "id": str(user["_id"]), "token": token }), 200)
 
 @auth_bp.route("/api/v1.0/logout", methods=['GET'])
 def logout():
