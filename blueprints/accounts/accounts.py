@@ -50,7 +50,7 @@ def addAccount(userId):
         
     new_account = {
         "userId": ObjectId(userId),
-        "accountType": request.form["accountType"],
+        "accountType": request.form["accountType"].lower(),
         "currency": request.form["currency"],
         "balance": 0.00,
         "availableBalance": 0.00,
@@ -159,3 +159,26 @@ def getArchivedAccounts(userId):
         account["userId"] = str(account["userId"])
         
     return make_response(jsonify(archived_account), 200)
+
+@accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/restore", methods=['PUT'])
+def restoreAccount(userId, accountId):
+    if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
+        return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
+    
+    result = accounts.update_one(
+        {
+            "_id": ObjectId(accountId),
+            "userId": ObjectId(userId)
+        },
+        {
+            "$set": {
+                "status": "active",
+                "updatedAt": datetime.now(UTC).isoformat() + "Z"
+            }
+        }
+    )
+    
+    if result.matched_count == 1:
+        return make_response(jsonify({ "message": "Account restored successfully" }), 200)
+    else:
+        return make_response(jsonify({ "error": "Account not found" }), 404)
