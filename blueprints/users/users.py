@@ -69,26 +69,33 @@ def createUser():
     
 @users_bp.route("/api/v1.0/users/<string:id>", methods=['PUT'])
 def updateUser(id):
-    if "firstName" in request.json and "lastName" in request.json and "email" in request.json and "phone" in request.json and "address" in request.json and "DOB" in request.json:
-        result = users.update_one({
-            "_id": ObjectId(id)
-        }, {
-            "$set": {
-                "firstName": request.json["firstName"],
-                "lastName": request.json["lastName"],
-                "email": request.json["email"].strip().lower(),
-                "phone": request.json["phone"],
-                "address": request.json["address"],
-                "DOB": request.json["DOB"]
-            }
-        })
-        if result.matched_count == 1:
-            edited_user_link = "http://localhost:5000/api/v1.0/users/" + id
-            return make_response(jsonify({ "url": edited_user_link }), 200)
-        else:
-            return make_response(jsonify({ "error": "Invalid user ID" }), 404)
+    if not ObjectId.is_valid(id):
+        return make_response(jsonify({ "error": "Invalid user ID" }), 400)
+    
+    data = request.get_json()
+    
+    allowed_fields = ["firstName", "lastName", "email", "password", "phone", "address", "DOB"]
+    updated_fields = {}
+    
+    for field in allowed_fields:
+        if field in data:
+            if field == "email":
+                updated_fields["email"] = data["email"].strip().lower()
+            elif field == "password":
+                updated_fields["password"] = bcrypt.hashpw(bytes(data["password"], 'UTF-8'), bcrypt.gensalt())
+            else:
+                updated_fields[field] = data[field]
+    
+    if not updated_fields:
+        return make_response(jsonify({ "error": "No valid fields to update" }), 400)
+    
+    result = users.update_one({ "_id": ObjectId(id) }, { "$set": updated_fields })
+    
+    if result.matched_count == 1:
+        return make_response(jsonify({ "message": "User updated successfully" }), 200)
     else:
-        return make_response(jsonify({ "error": "Missing required fields" }), 404)
+        return make_response(jsonify({ "error": "User not found" }), 404)
+    
     
 @users_bp.route("/api/v1.0/users/<string:id>", methods=['DELETE'])
 def deleteUser(id):
