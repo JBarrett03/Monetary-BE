@@ -30,6 +30,7 @@ def getUsers():
 @users_bp.route("/api/v1.0/users", methods=['POST'])
 def createUser():
     data = request.get_json()
+    email = data["email"].strip().lower()
     
     required_fields = [
         "firstName",
@@ -45,13 +46,13 @@ def createUser():
         return make_response(jsonify({ "error": "Missing required fields..." }), 400)
     
     # Prevent duplicate accounts
-    if users.find_one({ "email": data["email"] }):
+    if users.find_one({ "email": email }):
         return make_response(jsonify({ "error": "Email already exists..." }), 409)
     
     new_user = {
         "firstName": data["firstName"],
         "lastName": data["lastName"],
-        "email": data["email"],
+        "email": email,
         "password": bcrypt.hashpw(bytes(data["password"], 'UTF-8'), bcrypt.gensalt()),
         "phone": data["phone"],
         "address": data["address"],
@@ -75,7 +76,7 @@ def updateUser(id):
             "$set": {
                 "firstName": request.json["firstName"],
                 "lastName": request.json["lastName"],
-                "email": request.json["email"],
+                "email": request.json["email"].strip().lower(),
                 "phone": request.json["phone"],
                 "address": request.json["address"],
                 "DOB": request.json["DOB"]
