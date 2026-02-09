@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, make_response, request
 from datetime import datetime, UTC
 import globals
 import jwt
+import bcrypt
 
 auth_bp = Blueprint('auth_bp', __name__)
 users = globals.db.users
@@ -15,7 +16,11 @@ def login():
         return make_response(jsonify({ "error": "Email and Password are required..." }), 400)
     
     user = users.find_one({ "email": data['email'] })
+    
     if not user:
+        return make_response(jsonify({ "error": "Invalid email or password..." }), 401)
+    
+    if not bcrypt.checkpw(data["password"].encode('utf-8'), user["password"]):
         return make_response(jsonify({ "error": "Invalid email or password..." }), 401)
     
     token = jwt.encode(
