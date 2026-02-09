@@ -62,6 +62,7 @@ def addTransaction(userId, accountId):
             }
         }
     )
+    
     new_transaction = {
         "accountId": ObjectId(accountId),
         "type": request.form["type"],
