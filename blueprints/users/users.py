@@ -29,38 +29,53 @@ def getUsers():
 
 @users_bp.route("/api/v1.0/users", methods=['POST'])
 def createUser():
-    if "firstName" in request.json and "lastName" in request.json and "username" in request.json and "password" in request.json and "phone" in request.json and "address" in request.json and "DOB" in request.json:
-        new_user = {
-            "firstName": request.json["firstName"],
-            "lastName": request.json["lastName"],
-            "username": request.json["username"],
-            "password": bcrypt.hashpw(request.json["password"].encode(), bcrypt.gensalt()),
-            "phone": request.json["phone"],
-            "address": request.json["address"],
-            "DOB": request.json["DOB"],
-            "admin": False,
-            "emailVerified": False,
-            "phoneVerified": False,
-            "status": "active",
-            "createdAt": datetime.now(UTC).isoformat(),
-            "lastLoginAt": datetime.now(UTC).isoformat()
-        }
-        new_user_id = users.insert_one(new_user)
-        new_user_link = "http://localhost:5000/api/v1.0/users/" + str(new_user_id.inserted_id)
-        return make_response(jsonify({ "url": new_user_link }), 201)
-    else:
-        return make_response(jsonify({ "error": "Missing required fields" }), 404)
+    data = request.get_json()
+    
+    required_fields = [
+        "firstName",
+        "lastName",
+        "email",
+        "password",
+        "phone",
+        "address",
+        "DOB"
+    ]
+    
+    if not all(field in data for field in required_fields):
+        return make_response(jsonify({ "error": "Missing required fields..." }), 400)
+    
+    # Prevent duplicate accounts
+    if users.find_one({ "email": data["email"] }):
+        return make_response(jsonify({ "error": "Email already exists..." }), 409)
+    
+    new_user = {
+        "firstName": data["firstName"],
+        "lastName": data["lastName"],
+        "email": data["email"],
+        "password": bcrypt.hashpw(bytes(data["password"], 'UTF-8'), bcrypt.gensalt()),
+        "phone": data["phone"],
+        "address": data["address"],
+        "DOB": data["DOB"],
+        "admin": False,
+        "emailVerified": False,
+        "phoneVerified": False,
+        "createdAt": datetime.now(UTC).isoformat() + "Z",
+        "lastLogin": datetime.now(UTC).isoformat() + "Z"
+    }
+    
+    result = users.insert_one(new_user)
+    return make_response(jsonify({ "id": str(result.inserted_id), "message": "User created successfully" }), 201)
     
 @users_bp.route("/api/v1.0/users/<string:id>", methods=['PUT'])
 def updateUser(id):
-    if "firstName" in request.json and "lastName" in request.json and "username" in request.json and "phone" in request.json and "address" in request.json and "DOB" in request.json:
+    if "firstName" in request.json and "lastName" in request.json and "email" in request.json and "phone" in request.json and "address" in request.json and "DOB" in request.json:
         result = users.update_one({
             "_id": ObjectId(id)
         }, {
             "$set": {
                 "firstName": request.json["firstName"],
                 "lastName": request.json["lastName"],
-                "username": request.json["username"],
+                "email": request.json["email"],
                 "phone": request.json["phone"],
                 "address": request.json["address"],
                 "DOB": request.json["DOB"]
