@@ -2,6 +2,7 @@ from flask import make_response, jsonify, request, Blueprint
 from datetime import datetime, UTC
 from bson import ObjectId
 import globals
+from category_rules import CATEGORY_RULES
 
 transactions_bp = Blueprint('transactions_bp', __name__)
 
@@ -51,6 +52,9 @@ def addTransaction(userId, accountId):
     
     amount = float(request.form["amount"])
     new_balance = round(float(account["balance"]) - amount, 2)
+    merchant = request.form["merchant"]
+    description = request.form["description"]
+    category = autoCategoriseTransaction(merchant, description)
     
     accounts.update_one(
         { "_id": ObjectId(accountId) },
@@ -68,12 +72,22 @@ def addTransaction(userId, accountId):
         "type": request.form["type"],
         "amount": amount,
         "status": "completed",
-        "description": request.form["description"],
-        "merchant": request.form["merchant"],
-        "category": request.form["category"],
+        "description": description,
+        "merchant": merchant,
+        "category": category,
         "balanceAfter": new_balance,
         "createdAt": datetime.now(UTC).isoformat()
     }
     
     result = transactions.insert_one(new_transaction)
     return make_response(jsonify({ "transactionId": str(result.inserted_id), "newBalance": new_balance }), 201)
+
+def autoCategoriseTransaction(merchant: str, description: str) -> str:
+    text = f"{merchant} {description}".lower()
+    
+    for category, keywords in CATEGORY_RULES.items():
+        for keyword in keywords:
+            if keyword in text:
+                return category
+    
+    return "Miscellaneous"
