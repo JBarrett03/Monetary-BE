@@ -10,39 +10,25 @@ transactions = globals.db.transactions
 accounts = globals.db.accounts
 users = globals.db.users
 
-@transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:cardNumber>/transactions", methods=['GET'])
-def getAllTransactions(userId, cardNumber):
-    if not ObjectId.is_valid(userId):
-        return make_response(jsonify({ "error": "Invalid User Id" }), 400)
-    
-    if not cardNumber:
-        return make_response(jsonify({ "error": "Card number is required" }), 400)
-    
-    account = accounts.find_one({"accountNumber": cardNumber, "userId": ObjectId(userId)})
-    if not account:
-        return make_response(jsonify({ "error": "Account not found" }), 404)
+@transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/transactions", methods=['GET'])
+def getAllTransactions(userId, accountId):
+    if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
+        return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
     
     data_to_return = []
-    for transaction in transactions.find({"accountId": account["_id"]}):
+    for transaction in transactions.find({"accountId": ObjectId(accountId)}):
         transaction["_id"] = str(transaction["_id"])
         transaction["accountId"] = str(transaction["accountId"])
         data_to_return.append(transaction)
         
     return make_response(jsonify(data_to_return), 200)
 
-@transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:cardNumber>/transactions/<string:transactionId>", methods=['GET'])
-def getTransaction(userId, cardNumber, transactionId):
-    if not ObjectId.is_valid(userId) or not ObjectId.is_valid(transactionId):
-        return make_response(jsonify({ "error": "Invalid User Id or Transaction Id" }), 400)
+@transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/transactions/<string:transactionId>", methods=['GET'])
+def getTransaction(userId, accountId, transactionId):
+    if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId) or not ObjectId.is_valid(transactionId):
+        return make_response(jsonify({ "error": "Invalid User Id, Account Id or Transaction Id" }), 400)
     
-    if not cardNumber:
-        return make_response(jsonify({ "error": "Card number is required" }), 400)
-    
-    account = accounts.find_one({"accountNumber": cardNumber, "userId": ObjectId(userId)})
-    if not account:
-        return make_response(jsonify({ "error": "Account not found" }), 404)
-    
-    transaction = transactions.find_one({"_id": ObjectId(transactionId), "accountId": account["_id"]})
+    transaction = transactions.find_one({"_id": ObjectId(transactionId), "accountId": ObjectId(accountId)})
     
     if transaction is None:
         return make_response(jsonify({ "error": "Transaction not found" }), 404)
@@ -51,19 +37,16 @@ def getTransaction(userId, cardNumber, transactionId):
     transaction["accountId"] = str(transaction["accountId"])
     return make_response(jsonify(transaction), 200)
 
-@transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:cardNumber>/transactions", methods=['POST'])
-def addTransaction(userId, cardNumber):
-    if not ObjectId.is_valid(userId):
-        return make_response(jsonify({ "error": "Invalid User Id" }), 400)
-    
-    if not cardNumber:
-        return make_response(jsonify({ "error": "Card number is required" }), 400)
+@transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/transactions", methods=['POST'])
+def addTransaction(userId, accountId):
+    if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
+        return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
     
     user = users.find_one({ "_id": ObjectId(userId) })
     if not user:
         return make_response(jsonify({ "error": "User not found" }), 404)
     
-    account = accounts.find_one({ "accountNumber": cardNumber, "userId": ObjectId(userId) })
+    account = accounts.find_one({ "_id": ObjectId(accountId), "userId": ObjectId(userId) })
     if not account:
         return make_response(jsonify({ "error": "Account not found" }), 404)
     
@@ -74,7 +57,7 @@ def addTransaction(userId, cardNumber):
     category = autoCategoriseTransaction(merchant, description)
     
     accounts.update_one(
-        { "accountNumber": cardNumber },
+        { "_id": ObjectId(accountId) },
         {
             "$set": {
                 "balance": new_balance,
@@ -85,7 +68,7 @@ def addTransaction(userId, cardNumber):
     )
     
     new_transaction = {
-        "accountId": account["_id"],
+        "accountId": ObjectId(accountId),
         "type": request.form["type"],
         "amount": amount,
         "status": "completed",

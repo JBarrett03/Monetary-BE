@@ -28,15 +28,12 @@ def getAllUserAccounts(userId):
         
     return make_response(jsonify(data_to_return), 200)
 
-@accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:cardNumber>", methods=['GET'])
-def getUserAccount(userId, cardNumber):
-    if not ObjectId.is_valid(userId):
-        return make_response(jsonify({ "error": "Invalid user Id" }), 400)
+@accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>", methods=['GET'])
+def getUserAccount(userId, accountId):
+    if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
+        return make_response(jsonify({ "error": "Invalid user Id or Account Id" }), 400)
     
-    if not cardNumber:
-        return make_response(jsonify({ "error": "Card number is required" }), 400)
-    
-    account = accounts.find_one({"accountNumber": cardNumber, "userId": ObjectId(userId)})
+    account = accounts.find_one({"_id": ObjectId(accountId), "userId": ObjectId(userId)})
     
     if account is None:
         return make_response(jsonify({ "error": "Account not found" }), 404)
@@ -70,16 +67,13 @@ def addAccount(userId):
     }
     
     result = accounts.insert_one(new_account)
-    new_account_link = f"http://localhost:5000/api/v1.0/users/{userId}/accounts/{new_account['accountNumber']}"
+    new_account_link = f"http://localhost:5000/api/v1.0/users/{userId}/accounts/{result.inserted_id}"
     return make_response(jsonify({"url": new_account_link}), 201)
 
-@accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:cardNumber>", methods=['POST'])
-def addBalance(userId, cardNumber):
-    if not ObjectId.is_valid(userId):
-        return make_response(jsonify({ "error": "Invalid User Id" }), 400)
-    
-    if not cardNumber:
-        return make_response(jsonify({ "error": "Card number is required" }), 400)
+@accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>", methods=['POST'])
+def addBalance(userId, accountId):
+    if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
+        return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
     
     amount = request.form.get("amount")
     if amount is None:
@@ -90,14 +84,14 @@ def addBalance(userId, cardNumber):
     except ValueError:
         return make_response(jsonify({ "error": "Invalid amount format" }), 400)
     
-    account = accounts.find_one({ "accountNumber": cardNumber, "userId": ObjectId(userId) })
+    account = accounts.find_one({ "_id": ObjectId(accountId), "userId": ObjectId(userId) })
     if not account:
         return make_response(jsonify({ "error": "Account not found" }), 404)
     
     new_balance = account.get("balance", 0) + amount
     
     accounts.update_one(
-        { "accountNumber": cardNumber },
+        { "_id": ObjectId(accountId) },
         {
             "$set": {
                 "balance": new_balance,
@@ -119,7 +113,7 @@ def saveAccountOrder(userId):
     for item in data:
         accounts.update_one(
             {
-                "accountNumber": item["accountNumber"],
+                "_id": ObjectId(item["accountId"]),
                 "userId": ObjectId(userId)
             },
             {
@@ -132,17 +126,14 @@ def saveAccountOrder(userId):
     
     return make_response(jsonify({ "message": "Account order updated successfully" }), 200)
 
-@accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:cardNumber>", methods=['PUT'])
-def archiveAccount(userId, cardNumber):
-    if not ObjectId.is_valid(userId):
-        return make_response(jsonify({ "error": "Invalid User Id" }), 400)
-    
-    if not cardNumber:
-        return make_response(jsonify({ "error": "Card number is required" }), 400)
+@accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>", methods=['PUT'])
+def archiveAccount(userId, accountId):
+    if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
+        return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
     
     result = accounts.update_one(
         {
-            "accountNumber": cardNumber,
+            "_id": ObjectId(accountId),
             "userId": ObjectId(userId)
         },
         {
@@ -174,17 +165,14 @@ def getArchivedAccounts(userId):
         
     return make_response(jsonify(archived_account), 200)
 
-@accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:cardNumber>/restore", methods=['PUT'])
-def restoreAccount(userId, cardNumber):
-    if not ObjectId.is_valid(userId):
-        return make_response(jsonify({ "error": "Invalid User Id" }), 400)
-    
-    if not cardNumber:
-        return make_response(jsonify({ "error": "Card number is required" }), 400)
+@accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/restore", methods=['PUT'])
+def restoreAccount(userId, accountId):
+    if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
+        return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
     
     result = accounts.update_one(
         {
-            "accountNumber": cardNumber,
+            "_id": ObjectId(accountId),
             "userId": ObjectId(userId)
         },
         {
