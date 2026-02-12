@@ -1,6 +1,6 @@
 import random
 from flask import make_response, jsonify, request, Blueprint
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta
 from bson import ObjectId
 import globals
 
@@ -59,6 +59,7 @@ def addAccount(userId):
         "currency": request.form["currency"],
         "balance": 0.00,
         "availableBalance": 0.00,
+        "budget": None,
         "status": "active",
         "accountNumber": generate_card_number(),
         "order": account_order,
@@ -187,3 +188,76 @@ def restoreAccount(userId, accountId):
         return make_response(jsonify({ "message": "Account restored successfully" }), 200)
     else:
         return make_response(jsonify({ "error": "Account not found" }), 404)
+    
+@accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/budget", methods=['POST'])
+def setBudget(userId, accountId):
+    if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
+        return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
+    
+    account = accounts.find_one({
+        "_id": ObjectId(accountId),
+        "userId": ObjectId(userId)
+    })
+    
+    if not account:
+        return make_response(jsonify({ "error": "Account not found" }), 404)
+    
+    if account["accountType"] != "savings":
+        return make_response(jsonify({ "error": "Budgets can only be set for savings accounts" }), 400)
+    
+    data = request.get_json()
+    
+    amount = data.get("amount")
+    budget_period = data.get("period")
+    custom_start =  data.get("customStart")
+    custom_end = data.get("customEnd")
+    
+    if amount is None or not budget_period:
+        return make_response(jsonify({ "error": "Amount and type are required fields" }), 400)
+    
+    now = datetime.now(UTC)
+    
+    if budget_period == 'weekly':
+        start = now - timedelta(days=now.weekday())
+        end = start + timedelta(days=6)
+        
+    elif budget_period == 'monthly': 
+        start = now.replace(day=1)
+        next_month = start.replace(day=28) + timedelta(days=4)
+        end = next_month.replace(day=1) - timedelta(days=1)
+        
+    elif budget_period == 'annual':
+        start = now.replace(month=1, day=1)
+        end = now.replace(month=12, day=31)
+        
+    elif budget_period == 'custom':
+        if not custom_start or not custom_end: 
+            return make_response(jsonify({ "error": "Start and end dates are required for custom budget period" }), 400)
+        
+        start = datetime.fromisoformat(custom_start)
+        end = datetime.fromisoformat(custom_end)
+    
+    else:
+        return make_response(jsonify({ "error": "Invalid budget period type" }), 400)
+    
+    budget = {
+        "amount": float(amount),
+        "period": budget_period,
+        "startDate": start.isoformat(),
+        "endDate": end.isoformat()
+    }
+    
+    accounts.update_one(
+        {
+            "_id": ObjectId(accountId),
+            "userId": ObjectId(userId)
+        },
+        {
+            "$set": {
+                "budget": budget, 
+                "updatedAt": datetime.now(UTC).isoformat() + "Z"
+            }
+        }
+    )
+    
+    return make_response(jsonify({ "message": "Budget set successfully" }), 200)
