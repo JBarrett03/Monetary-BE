@@ -40,6 +40,36 @@ def getUserAccount(userId, accountId):
     
     account["_id"] = str(account["_id"])
     account["userId"] = str(account["userId"])
+    
+    if account.get("budget"):
+        
+        budget = account["budget"]
+        
+        start_budget = datetime.fromisoformat(budget["startDate"])
+        end_budget = datetime.fromisoformat(budget["endDate"])
+        
+        transactions = list(globals.db.transactions.find({
+            "accountId": ObjectId(accountId),
+            "userId": ObjectId(userId),
+            "type": "debit"
+        }))
+        
+        total_spent = 0.00
+        
+        for transaction in transactions:
+            if "createdAt" in transaction:
+                created_at = datetime.fromisoformat(transaction["createdAt"].replace("Z", "+00:00"))
+                if start_budget <= created_at <= end_budget:
+                    total_spent += float(transaction["amount"])
+        
+        remaining_budget = float(budget["amount"]) - total_spent
+        
+        if remaining_budget < 0:
+            remaining_budget = 0.00
+            
+        account["budgetSpent"] = total_spent
+        account["budgetRemaining"] = remaining_budget
+        
     return make_response(jsonify(account), 200)
 
 @accounts_bp.route("/api/v1.0/users/<string:userId>/accounts", methods=['POST'])
