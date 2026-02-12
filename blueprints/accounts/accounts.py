@@ -206,11 +206,12 @@ def setBudget(userId, accountId):
         return make_response(jsonify({ "error": "Budgets can only be set for savings accounts" }), 400)
     
     data = request.get_json()
+    print("Incoming JSON:", data)
     
     amount = data.get("amount")
     budget_period = data.get("period")
-    custom_start =  data.get("customStart")
-    custom_end = data.get("customEnd")
+    custom_start =  data.get("startDate")
+    custom_end = data.get("endDate")
     
     if amount is None or not budget_period:
         return make_response(jsonify({ "error": "Amount and type are required fields" }), 400)
