@@ -236,7 +236,6 @@ def setBudget(userId, accountId):
         return make_response(jsonify({ "error": "Budgets can only be set for savings accounts" }), 400)
     
     data = request.get_json()
-    print("Incoming JSON:", data)
     
     amount = data.get("amount")
     budget_period = data.get("period")
@@ -292,3 +291,21 @@ def setBudget(userId, accountId):
     )
     
     return make_response(jsonify({ "message": "Budget set successfully" }), 200)
+
+@accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/by-number/<string:accountNumber>", methods=['GET'])
+def getAccountByNumber(userId, accountNumber):
+    
+    if not ObjectId.is_valid(userId):
+        return make_response(jsonify({ "error": "Invalid User Id" }), 400)
+    
+    normalized_account_number = accountNumber.replace(" ", "")
+    
+    user_accounts = accounts.find({ "userId": ObjectId(userId) })
+    
+    for account in user_accounts:
+        if account["accountNumber"].replace(" ", "") == normalized_account_number:
+            account["_id"] = str(account["_id"])
+            account["userId"] = str(account["userId"])
+            return make_response(jsonify(account), 200)
+    
+    return make_response(jsonify({ "error": "Account not found" }), 404)
