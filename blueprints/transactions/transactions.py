@@ -6,9 +6,14 @@ from category_rules import CATEGORY_RULES
 
 transactions_bp = Blueprint('transactions_bp', __name__)
 
-transactions = globals.db.transactions
-accounts = globals.db.accounts
-users = globals.db.users
+def get_transactions():
+    return globals.db.transactions
+
+def get_accounts():
+    return globals.db.accounts
+
+def get_users():
+    return globals.db.users
 
 @transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/transactions", methods=['GET'])
 def getAllTransactions(userId, accountId):
@@ -16,7 +21,7 @@ def getAllTransactions(userId, accountId):
         return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
     
     data_to_return = []
-    for transaction in transactions.find({"accountId": ObjectId(accountId)}):
+    for transaction in get_transactions().find({"accountId": ObjectId(accountId)}):
         transaction["_id"] = str(transaction["_id"])
         transaction["accountId"] = str(transaction["accountId"])
         data_to_return.append(transaction)
@@ -28,7 +33,7 @@ def getTransaction(userId, accountId, transactionId):
     if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId) or not ObjectId.is_valid(transactionId):
         return make_response(jsonify({ "error": "Invalid User Id, Account Id or Transaction Id" }), 400)
     
-    transaction = transactions.find_one({"_id": ObjectId(transactionId), "accountId": ObjectId(accountId)})
+    transaction = get_transactions().find_one({"_id": ObjectId(transactionId), "accountId": ObjectId(accountId)})
     
     if transaction is None:
         return make_response(jsonify({ "error": "Transaction not found" }), 404)
@@ -42,11 +47,11 @@ def addTransaction(userId, accountId):
     if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
         return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
     
-    user = users.find_one({ "_id": ObjectId(userId) })
+    user = get_users().find_one({ "_id": ObjectId(userId) })
     if not user:
         return make_response(jsonify({ "error": "User not found" }), 404)
     
-    account = accounts.find_one({ "_id": ObjectId(accountId), "userId": ObjectId(userId) })
+    account = get_accounts().find_one({ "_id": ObjectId(accountId), "userId": ObjectId(userId) })
     if not account:
         return make_response(jsonify({ "error": "Account not found" }), 404)
     
@@ -56,7 +61,7 @@ def addTransaction(userId, accountId):
     description = request.form["description"]
     category = autoCategoriseTransaction(merchant, description)
     
-    accounts.update_one(
+    get_accounts().update_one(
         { "_id": ObjectId(accountId) },
         {
             "$set": {
@@ -79,7 +84,7 @@ def addTransaction(userId, accountId):
         "createdAt": datetime.now(UTC).isoformat()
     }
     
-    result = transactions.insert_one(new_transaction)
+    result = get_transactions().insert_one(new_transaction)
     return make_response(jsonify({ "transactionId": str(result.inserted_id), "newBalance": new_balance }), 201)
 
 def autoCategoriseTransaction(merchant: str, description: str) -> str:
