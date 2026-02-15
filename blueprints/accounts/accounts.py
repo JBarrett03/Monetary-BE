@@ -1,12 +1,17 @@
 import random
 from flask import make_response, jsonify, request, Blueprint
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta
 from bson import ObjectId
 import globals
 
 accounts_bp = Blueprint('accounts_bp', __name__)
 accounts = globals.db.accounts
 users = globals.db.users
+
+def generate_card_number():
+    card_number = ''.join([str(random.randint(0, 9)) for _ in range(16)])
+    formatted = f"{card_number[0:4]} {card_number[4:8]} {card_number[8:12]} {card_number[12:16]}"
+    return formatted
 
 @accounts_bp.route("/api/v1.0/users/<string:userId>/accounts", methods=['GET'])
 def getAllUserAccounts(userId):
@@ -35,6 +40,36 @@ def getUserAccount(userId, accountId):
     
     account["_id"] = str(account["_id"])
     account["userId"] = str(account["userId"])
+    
+    if account.get("budget"):
+        
+        budget = account["budget"]
+        
+        start_budget = datetime.fromisoformat(budget["startDate"])
+        end_budget = datetime.fromisoformat(budget["endDate"])
+        
+        transactions = list(globals.db.transactions.find({
+            "accountId": ObjectId(accountId),
+            "userId": ObjectId(userId),
+            "type": "debit"
+        }))
+        
+        total_spent = 0.00
+        
+        for transaction in transactions:
+            if "createdAt" in transaction:
+                created_at = datetime.fromisoformat(transaction["createdAt"].replace("Z", "+00:00"))
+                if start_budget <= created_at <= end_budget:
+                    total_spent += float(transaction["amount"])
+        
+        remaining_budget = float(budget["amount"]) - total_spent
+        
+        if remaining_budget < 0:
+            remaining_budget = 0.00
+            
+        account["budgetSpent"] = total_spent
+        account["budgetRemaining"] = remaining_budget
+        
     return make_response(jsonify(account), 200)
 
 @accounts_bp.route("/api/v1.0/users/<string:userId>/accounts", methods=['POST'])
@@ -50,12 +85,14 @@ def addAccount(userId):
         
     new_account = {
         "userId": ObjectId(userId),
-        "accountType": request.form["accountType"],
+        "accountType": request.form["accountType"].lower(),
         "currency": request.form["currency"],
         "balance": 0.00,
         "availableBalance": 0.00,
+        "budget": None,
         "status": "active",
-        "accountNumber": str(random.randint(10000000, 99999999)),
+        "accountNumber": generate_card_number(),
+        "isDefault": False,
         "order": account_order,
         "openedAt": datetime.now(UTC).isoformat() + "Z",
         "updatedAt": datetime.now(UTC).isoformat() + "Z"
@@ -159,3 +196,167 @@ def getArchivedAccounts(userId):
         account["userId"] = str(account["userId"])
         
     return make_response(jsonify(archived_account), 200)
+
+@accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/restore", methods=['PUT'])
+def restoreAccount(userId, accountId):
+    if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
+        return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
+    
+    result = accounts.update_one(
+        {
+            "_id": ObjectId(accountId),
+            "userId": ObjectId(userId)
+        },
+        {
+            "$set": {
+                "status": "active",
+                "updatedAt": datetime.now(UTC).isoformat() + "Z"
+            }
+        }
+    )
+    
+    if result.matched_count == 1:
+        return make_response(jsonify({ "message": "Account restored successfully" }), 200)
+    else:
+        return make_response(jsonify({ "error": "Account not found" }), 404)
+    
+@accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/budget", methods=['POST'])
+def setBudget(userId, accountId):
+    if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
+        return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
+    
+    account = accounts.find_one({
+        "_id": ObjectId(accountId),
+        "userId": ObjectId(userId)
+    })
+    
+    if not account:
+        return make_response(jsonify({ "error": "Account not found" }), 404)
+    
+    if account["accountType"] != "savings":
+        return make_response(jsonify({ "error": "Budgets can only be set for savings accounts" }), 400)
+    
+    data = request.get_json()
+    
+    amount = data.get("amount")
+    budget_period = data.get("period")
+    custom_start =  data.get("startDate")
+    custom_end = data.get("endDate")
+    
+    if amount is None or not budget_period:
+        return make_response(jsonify({ "error": "Amount and type are required fields" }), 400)
+    
+    now = datetime.now(UTC)
+    
+    if budget_period == 'weekly':
+        start = now - timedelta(days=now.weekday())
+        end = start + timedelta(days=6)
+        
+    elif budget_period == 'monthly': 
+        start = now.replace(day=1)
+        next_month = start.replace(day=28) + timedelta(days=4)
+        end = next_month.replace(day=1) - timedelta(days=1)
+        
+    elif budget_period == 'annual':
+        start = now.replace(month=1, day=1)
+        end = now.replace(month=12, day=31)
+        
+    elif budget_period == 'custom':
+        if not custom_start or not custom_end: 
+            return make_response(jsonify({ "error": "Start and end dates are required for custom budget period" }), 400)
+        
+        start = datetime.fromisoformat(custom_start)
+        end = datetime.fromisoformat(custom_end)
+    
+    else:
+        return make_response(jsonify({ "error": "Invalid budget period type" }), 400)
+    
+    budget = {
+        "amount": float(amount),
+        "period": budget_period,
+        "startDate": start.isoformat(),
+        "endDate": end.isoformat()
+    }
+    
+    accounts.update_one(
+        {
+            "_id": ObjectId(accountId),
+            "userId": ObjectId(userId)
+        },
+        {
+            "$set": {
+                "budget": budget, 
+                "updatedAt": datetime.now(UTC).isoformat() + "Z"
+            }
+        }
+    )
+    
+    return make_response(jsonify({ "message": "Budget set successfully" }), 200)
+
+@accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/by-number/<string:accountNumber>", methods=['GET'])
+def getAccountByNumber(userId, accountNumber):
+    
+    if not ObjectId.is_valid(userId):
+        return make_response(jsonify({ "error": "Invalid User Id" }), 400)
+    
+    normalized_account_number = accountNumber.replace(" ", "")
+    
+    user_accounts = accounts.find({ "userId": ObjectId(userId) })
+    
+    for account in user_accounts:
+        if account["accountNumber"].replace(" ", "") == normalized_account_number:
+            account["_id"] = str(account["_id"])
+            account["userId"] = str(account["userId"])
+            return make_response(jsonify(account), 200)
+    
+    return make_response(jsonify({ "error": "Account not found" }), 404)
+
+@accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/set-default", methods=['PUT'])
+def setDefaultAccount(userId, accountId):
+    if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
+        return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
+    
+    accounts.update_many(
+        {
+            "userId": ObjectId(userId)
+        },
+        {
+            "$set": {
+                "isDefault": False,
+                "updatedAt": datetime.now(UTC).isoformat() + "Z"
+            }
+        }
+    )
+    
+    result = accounts.update_one(
+        {
+            "_id": ObjectId(accountId),
+            "userId": ObjectId(userId)
+        },
+        {
+            "$set": {
+                "isDefault": True,
+                "updatedAt": datetime.now(UTC).isoformat() + "Z"
+            }
+        }
+    )
+    
+    if result.matched_count == 1:
+        return make_response(jsonify({ "message": "Default Account Set" }), 200)
+    else:
+        return make_response(jsonify({ "error": "Account not found" }), 404)
+    
+@accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/default", methods=['GET'])
+def getDefaultAccount(userId):
+    if not ObjectId.is_valid(userId):
+        return make_response(jsonify({ "error": "Invalid User Id" }), 400)
+    
+    default_account = accounts.find_one({ "userId": ObjectId(userId), "isDefault": True, "status": { "$ne": "archived" } })
+    
+    if not default_account:
+        return make_response(jsonify({ "error": "Default account not found" }), 404)
+    
+    default_account["_id"] = str(default_account["_id"])
+    default_account["userId"] = str(default_account["userId"])
+    
+    return make_response(jsonify(default_account), 200)

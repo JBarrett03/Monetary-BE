@@ -1,9 +1,7 @@
-from flask import Blueprint, jsonify, make_response, request
+from flask import jsonify, make_response, request
 import jwt
 from functools import wraps
 import globals
-
-decorators_bp = Blueprint('decorators_bp', __name__)
 
 blacklist = globals.db.blacklist
 
