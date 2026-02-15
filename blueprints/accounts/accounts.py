@@ -92,6 +92,7 @@ def addAccount(userId):
         "budget": None,
         "status": "active",
         "accountNumber": generate_card_number(),
+        "isDefault": False,
         "order": account_order,
         "openedAt": datetime.now(UTC).isoformat() + "Z",
         "updatedAt": datetime.now(UTC).isoformat() + "Z"
@@ -309,3 +310,56 @@ def getAccountByNumber(userId, accountNumber):
             return make_response(jsonify(account), 200)
     
     return make_response(jsonify({ "error": "Account not found" }), 404)
+
+@accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/set-default", methods=['PUT'])
+def setDefaultAccount(userId, accountId):
+    print("Setting default account...", userId, accountId)
+    if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
+        return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
+    
+    accounts.update_many(
+        {
+            "userId": ObjectId(userId)
+        },
+        {
+            "$set": {
+                "isDefault": False,
+                "updatedAt": datetime.now(UTC).isoformat() + "Z"
+            }
+        }
+    )
+    
+    result = accounts.update_one(
+        {
+            "_id": ObjectId(accountId),
+            "userId": ObjectId(userId)
+        },
+        {
+            "$set": {
+                "isDefault": True,
+                "updatedAt": datetime.now(UTC).isoformat() + "Z"
+            }
+        }
+    )
+    
+    print("Matched count:", result.matched_count)
+    
+    if result.matched_count == 1:
+        return make_response(jsonify({ "message": "Default Account Set" }), 200)
+    else:
+        return make_response(jsonify({ "error": "Account not found" }), 404)
+    
+@accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/default", methods=['GET'])
+def getDefaultAccount(userId):
+    if not ObjectId.is_valid(userId):
+        return make_response(jsonify({ "error": "Invalid User Id" }), 400)
+    
+    default_account = accounts.find_one({ "userId": ObjectId(userId), "isDefault": True, "status": { "$ne": "archived" } })
+    
+    if not default_account:
+        return make_response(jsonify({ "error": "Default account not found" }), 404)
+    
+    default_account["_id"] = str(default_account["_id"])
+    default_account["userId"] = str(default_account["userId"])
+    
+    return make_response(jsonify(default_account), 200)
