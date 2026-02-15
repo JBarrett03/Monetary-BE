@@ -240,7 +240,56 @@ def test_create_account_user_not_found(client):
     })
     assert response.status_code == 404
 
-# Test cases for updating an account for a user in the accounts blueprint
+# Test cases for adding to an account balance
+
+def test_add_balance_invalid_user_id(client):
+    response = client.post("/api/v1.0/users/invalidUserId/accounts/invalidAccountId", data = { "amount": 50.0 })
+    assert response.status_code == 400
+    
+def test_add_balance_invalid_account_id(client, db):
+    valid_user = str(ObjectId())
+    response = client.post(f"/api/v1.0/users/{valid_user}/accounts/invalidAccountId", data = { "amount": 50.0 })
+    assert response.status_code == 400
+    
+def test_add_balance_account_not_found(client, db):
+    userId = db.users.insert_one({
+        "email": "testuser@example.com"
+    }).inserted_id
+    
+    non_existent_account_id = str(ObjectId())
+    response = client.post(f"/api/v1.0/users/{userId}/accounts/{non_existent_account_id}/add-balance", data = {
+        "amount": 50.0
+    })
+    assert response.status_code == 404
+    
+def test_add_balance_missing_amount(client, db):
+    userId = db.users.insert_one({
+        "email": "testuser@example.com"
+    }).inserted_id
+    
+    accountId = db.accounts.insert_one({
+        "userId": userId,
+        "balance": 100.0,
+    }).inserted_id
+    
+    response = client.post(f"/api/v1.0/users/{userId}/accounts/{accountId}", data = {})
+    assert response.status_code == 400
+    
+def test_add_balance_success(client, db):
+    userId = db.users.insert_one({
+        "email": "testuser@example.com"
+    }).inserted_id
+    
+    accountId = db.accounts.insert_one({
+        "userId": userId,
+        "balance": 100.0,
+        "availableBalance": 100.0,
+    }).inserted_id
+    
+    response = client.post(f"/api/v1.0/users/{userId}/accounts/{accountId}", data = { "amount": 50.0 })
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["newBalance"] == 150.0
 
 # Test cases for archiving an account for a user in the accounts blueprint
     
