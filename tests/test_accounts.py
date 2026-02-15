@@ -136,7 +136,7 @@ def test_get_account_invalid_user_id(client):
     response = client.get("/api/v1.0/users/invalidUserId/accounts/invalid")
     assert response.status_code == 400
     
-def test_get_account_invalid_account_id(client, db):
+def test_get_account_invalid_account_id(client):
     valid_user = str(ObjectId())
     response = client.get(f"/api/v1.0/users/{valid_user}/accounts/invalid")
     assert response.status_code == 400
@@ -292,6 +292,48 @@ def test_add_balance_success(client, db):
     assert data["newBalance"] == 150.0
 
 # Test cases for archiving an account for a user in the accounts blueprint
+
+def test_archive_account_invalid_user_id(client):
+    response = client.put("/api/v1.0/users/invalidUserId/accounts/invalidAccountId")
+    assert response.status_code == 400
+
+def test_archive_account_invalid_account_id(client):
+    valid_user = str(ObjectId())
+    response = client.put(f"/api/v1.0/users/{valid_user}/accounts/invalidAccountId")
+    assert response.status_code == 400
+    
+def test_archive_account_not_found(client, db):
+    userId = db.users.insert_one({
+        "email": "testuser@example.com"
+    }).inserted_id
+    
+    non_existent_account_id = str(ObjectId())
+    response = client.put(f"/api/v1.0/users/{userId}/accounts/{non_existent_account_id}")
+    assert response.status_code == 404
+    
+def test_archive_account_success(client, db):
+    userId = db.users.insert_one({
+        "email": "testuser@example.com"
+    }).inserted_id
+    
+    accountId = db.accounts.insert_one({
+        "userId": userId,
+        "status": "active",
+        "balance": 100.0,
+        "accountType": "savings"
+    }).inserted_id
+    
+    response = client.put(f"/api/v1.0/users/{userId}/accounts/{accountId}")
+    
+    assert response.status_code == 200
+    assert response.json["message"] == "Account archived successfully"
+    
+    updated_account = db.accounts.find_one({ "_id": accountId })
+    assert updated_account["status"] == "archived"
+    assert "updatedAt" in updated_account
+    assert updated_account["updatedAt"].endswith("Z")
+
+# Test cases for retrieving an archived account for a user in the accounts blueprint
     
 # Test cases for setting a card as default in the accounts blueprint
 
