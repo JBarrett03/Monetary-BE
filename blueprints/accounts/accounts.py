@@ -313,7 +313,6 @@ def getAccountByNumber(userId, accountNumber):
 
 @accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/set-default", methods=['PUT'])
 def setDefaultAccount(userId, accountId):
-    print("Setting default account...", userId, accountId)
     if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
         return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
     
@@ -341,8 +340,6 @@ def setDefaultAccount(userId, accountId):
             }
         }
     )
-    
-    print("Matched count:", result.matched_count)
     
     if result.matched_count == 1:
         return make_response(jsonify({ "message": "Default Account Set" }), 200)

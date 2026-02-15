@@ -34,11 +34,9 @@ def stripe_webhook():
             os.getenv("STRIPE_WEBHOOK_SECRET")
         )
     except Exception as e:
-        print("Webhook verification failed:", e)
         return "", 400
     
     if event["type"] == "payment_intent.succeeded":
         intent = event["data"]["object"]
-        print("Payment succeeded for amount:", intent["id"])
         
     return "", 200
