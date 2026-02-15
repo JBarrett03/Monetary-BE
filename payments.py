@@ -37,6 +37,6 @@ def stripe_webhook():
         return "", 400
     
     if event["type"] == "payment_intent.succeeded":
-        intent = event["data"]["object"]
+        pass
         
     return "", 200

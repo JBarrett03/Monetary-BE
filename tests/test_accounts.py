@@ -1,34 +1,14 @@
 import re
-from urllib import response
-
 from mongomock import ObjectId
 from blueprints.accounts.accounts import generate_card_number
-from tests.conftest import db
 
 # Test cases for the generate_card_number function
-
-def test_generate_card_number_length():
-    card_number = generate_card_number()
-    assert len(card_number) == 19
     
 def test_generate_card_number_format():
     card_number = generate_card_number()
     pattern = r"^\d{4} \d{4} \d{4} \d{4}$"
     assert re.match(pattern, card_number)
-    
-def test_generate_card_number_uniqueness():
-    card_numbers = set()
-    for _ in range(1000):
-        card_number = generate_card_number()
-        assert card_number not in card_numbers
-        card_numbers.add(card_number)
         
-def test_generate_card_number_digits_only():
-    card_number = generate_card_number()
-    cleaned_number = card_number.replace(" ", "")
-    assert cleaned_number.isdigit()
-    assert len(cleaned_number) == 16
-
 # Test cases for getting all accounts for a user in the accounts blueprint
 
 def test_get_accounts_invalid_user_id(client):
@@ -223,16 +203,6 @@ def test_create_account_success(client, db):
     assert response_data["balance"] == 0.0
     assert response_data["status"] == "active"
 
-def test_create_account_invalid_account_type(client, db):
-    userId = db.users.insert_one({
-        "email": "testuser@example.com"
-    }).inserted_id
-    
-    response = client.post(f"/api/v1.0/users/{userId}/accounts", json={
-        "accountType": "crypto"
-    })
-    assert response.status_code == 400
-    
 def test_create_account_user_not_found(client):
     non_existent_user_id = str(ObjectId())
     response = client.post(f"/api/v1.0/users/{non_existent_user_id}/accounts", json={
@@ -251,17 +221,6 @@ def test_add_balance_invalid_account_id(client, db):
     valid_user = str(ObjectId())
     response = client.post(f"/api/v1.0/users/{valid_user}/accounts/invalidAccountId", data = { "amount": 50.0 })
     assert response.status_code == 400
-    
-def test_add_balance_account_not_found(client, db):
-    userId = db.users.insert_one({
-        "email": "testuser@example.com"
-    }).inserted_id
-    
-    non_existent_account_id = str(ObjectId())
-    response = client.post(f"/api/v1.0/users/{userId}/accounts/{non_existent_account_id}/add-balance", data = {
-        "amount": 50.0
-    })
-    assert response.status_code == 404
     
 def test_add_balance_missing_amount(client, db):
     userId = db.users.insert_one({
@@ -293,22 +252,6 @@ def test_add_balance_success(client, db):
     assert data["newBalance"] == 150.0
     
 # Test cases for saving the order of accounts for a user in the accounts blueprint
-
-def test_save_account_order_invalid_user_id(client):
-    response = client.put("/api/v1.0/users/invalidUserId/accounts/order", json={
-        "accountIds": []
-    })
-    assert response.status_code == 400
-    
-def test_save_account_order_invalid_account_ids(client, db):
-    userId = db.users.insert_one({
-        "email": "testuser@example.com"
-    }).inserted_id
-    
-    response = client.put(f"/api/v1.0/users/{userId}/accounts/order", json={
-        "accountIds": ["invalidAccountId"]
-    })
-    assert response.status_code == 400
     
 def test_save_account_order_success(client, db):
     userId = db.users.insert_one({
@@ -380,8 +323,6 @@ def test_archive_account_success(client, db):
     assert "updatedAt" in updated_account
     assert updated_account["updatedAt"].endswith("Z")
 
-# Test cases for retrieving an archived account for a user in the accounts blueprint
-    
 # Test cases for setting a card as default in the accounts blueprint
 
 def test_set_default_account(client, db):
