@@ -1,4 +1,6 @@
 import re
+
+from mongomock import ObjectId
 from blueprints.accounts.accounts import generate_card_number
 from tests.conftest import db
 
@@ -130,6 +132,61 @@ def test_get_accounts_sorted_by_order(client, db):
 
 # Test cases for getting a specific account for a user in the accounts blueprint
 
+def test_get_account_invalid_user_id(client):
+    response = client.get("/api/v1.0/users/invalidUserId/accounts/invalid")
+    assert response.status_code == 400
+    
+def test_get_account_invalid_account_id(client, db):
+    valid_user = str(ObjectId())
+    response = client.get(f"/api/v1.0/users/{valid_user}/accounts/invalid")
+    assert response.status_code == 400
+
+def test_get_account_not_found(client, db):
+    userId = db.users.insert_one({
+        "email": "testuser@example.com"
+    }).inserted_id
+    valid_account_id = str(ObjectId())
+    response = client.get(f"/api/v1.0/users/{userId}/accounts/{valid_account_id}")
+    assert response.status_code == 404
+    
+def test_get_account_success(client, db):
+    userId = db.users.insert_one({
+        "email": "testuser@example.com"
+    }).inserted_id
+    
+    accountId = db.accounts.insert_one({
+        "userId": userId,
+        "accountType": "savings",
+        "currency": "USD",
+        "balance": 100.0,
+        "availableBalance": 100.0,
+        "status": "active"
+    }).inserted_id
+    
+    response = client.get(f"/api/v1.0/users/{userId}/accounts/{accountId}")
+    assert response.status_code == 200
+
+def test_get_account_wrong_user(client, db):
+    userId1 = db.users.insert_one({
+        "email": "testuser1@example.com"
+    }).inserted_id
+    
+    userId2 = db.users.insert_one({
+        "email": "testuser2@example.com"
+    }).inserted_id
+    
+    accountId = db.accounts.insert_one({
+        "userId": userId1,
+        "accountType": "savings",
+        "currency": "USD",
+        "balance": 100.0,
+        "availableBalance": 100.0,
+        "status": "active"
+    }).inserted_id
+    
+    response = client.get(f"/api/v1.0/users/{userId2}/accounts/{accountId}")
+    assert response.status_code == 404
+       
 # Test cases for creating a new account for a user in the accounts blueprint
 
 # Test cases for updating an account for a user in the accounts blueprint
