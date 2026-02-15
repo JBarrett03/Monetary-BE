@@ -1,4 +1,5 @@
 import re
+from urllib import response
 
 from mongomock import ObjectId
 from blueprints.accounts.accounts import generate_card_number
@@ -290,6 +291,52 @@ def test_add_balance_success(client, db):
     assert response.status_code == 200
     data = response.get_json()
     assert data["newBalance"] == 150.0
+    
+# Test cases for saving the order of accounts for a user in the accounts blueprint
+
+def test_save_account_order_invalid_user_id(client):
+    response = client.put("/api/v1.0/users/invalidUserId/accounts/order", json={
+        "accountIds": []
+    })
+    assert response.status_code == 400
+    
+def test_save_account_order_invalid_account_ids(client, db):
+    userId = db.users.insert_one({
+        "email": "testuser@example.com"
+    }).inserted_id
+    
+    response = client.put(f"/api/v1.0/users/{userId}/accounts/order", json={
+        "accountIds": ["invalidAccountId"]
+    })
+    assert response.status_code == 400
+    
+def test_save_account_order_success(client, db):
+    userId = db.users.insert_one({
+        "email": "testuser@example.com"
+    }).inserted_id
+    
+    accountId1 = db.accounts.insert_one({
+        "userId": userId,
+        "order": 1,
+        "status": "active",
+        "balance": 100.0,
+        "accountType": "savings"
+    }).inserted_id
+    
+    accountId2 = db.accounts.insert_one({
+        "userId": userId,
+        "order": 2,
+        "status": "active",
+        "balance": 200.0,
+        "accountType": "savings"
+    }).inserted_id
+    
+    response = client.put(f"/api/v1.0/users/{userId}/accounts/order-accounts", json = [
+        { "accountId": str(accountId2), "order": 1 },
+        { "accountId": str(accountId1), "order": 2 }
+    ])
+        
+    assert response.status_code == 200
 
 # Test cases for archiving an account for a user in the accounts blueprint
 
