@@ -319,10 +319,7 @@ def getAccountByNumber(userId, accountNumber):
 def setDefaultAccount(userId, accountId):
     if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
         return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
-    
-    user_object_id = ObjectId(userId)
-    account_object_id = ObjectId(accountId)
-    
+        
     get_accounts().update_many(
         {
             "userId": ObjectId(userId)
