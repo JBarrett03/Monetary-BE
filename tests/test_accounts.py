@@ -189,6 +189,57 @@ def test_get_account_wrong_user(client, db):
        
 # Test cases for creating a new account for a user in the accounts blueprint
 
+def test_create_account_invalid_user_id(client):
+    response = client.post("/api/v1.0/users/invalidUserId/accounts", json={
+        "accountType": "savings",
+        "currency": "USD"
+    })
+    assert response.status_code == 400
+    
+def test_create_account_missing_fields(client, db):
+    userId = db.users.insert_one({
+        "email": "testuser@example.com"
+    }).inserted_id
+    
+    response = client.post(f"/api/v1.0/users/{userId}/accounts", json={
+        "accountType": "savings"
+    })
+    assert response.status_code == 400
+    
+def test_create_account_success(client, db):
+    userId = db.users.insert_one({
+        "email": "testuser@example.com"
+    }).inserted_id
+    
+    response = client.post(f"/api/v1.0/users/{userId}/accounts", json={
+        "accountType": "savings",
+        "currency": "USD"
+    })
+    assert response.status_code == 201
+    response_data = response.get_json()
+    assert response_data["accountType"] == "savings"
+    assert response_data["currency"] == "USD"
+    assert response_data["balance"] == 0.0
+    assert response_data["status"] == "active"
+
+def test_create_account_invalid_account_type(client, db):
+    userId = db.users.insert_one({
+        "email": "testuser@example.com"
+    }).inserted_id
+    
+    response = client.post(f"/api/v1.0/users/{userId}/accounts", json={
+        "accountType": "crypto"
+    })
+    assert response.status_code == 400
+    
+def test_create_account_user_not_found(client):
+    non_existent_user_id = str(ObjectId())
+    response = client.post(f"/api/v1.0/users/{non_existent_user_id}/accounts", json={
+        "accountType": "savings",
+        "currency": "USD"
+    })
+    assert response.status_code == 404
+
 # Test cases for updating an account for a user in the accounts blueprint
 
 # Test cases for archiving an account for a user in the accounts blueprint

@@ -85,12 +85,28 @@ def addAccount(userId):
     if not user:
         return make_response(jsonify({ "error": "User not found" }), 404)
     
+    data = request.get_json()
+    
+    if not data:
+        return make_response(jsonify({ "error": "Request body must be JSON" }), 400)
+    
+    accountType = data.get("accountType")
+    currency = data.get("currency")
+    
+    if not accountType or not currency:
+        return make_response(jsonify({ "error": "accountType and currency are required fields" }), 400)
+    
+    accountType = accountType.lower()
+    
+    if accountType not in ["savings", "checking"]:
+        return make_response(jsonify({ "error": "Invalid account type. Must be 'savings' or 'checking'" }), 400)
+    
     account_order = get_accounts().count_documents({ "userId": ObjectId(userId) })
         
     new_account = {
         "userId": ObjectId(userId),
-        "accountType": request.form["accountType"].lower(),
-        "currency": request.form["currency"],
+        "accountType": accountType,
+        "currency": currency,
         "balance": 0.00,
         "availableBalance": 0.00,
         "budget": None,
@@ -103,8 +119,9 @@ def addAccount(userId):
     }
     
     result = get_accounts().insert_one(new_account)
-    new_account_link = f"http://localhost:5000/api/v1.0/users/{userId}/accounts/{result.inserted_id}"
-    return make_response(jsonify({"url": new_account_link}), 201)
+    new_account["_id"] = str(result.inserted_id)
+    new_account["userId"] = str(new_account["userId"])
+    return make_response(jsonify(new_account), 201)
 
 @accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>", methods=['POST'])
 def addBalance(userId, accountId):
