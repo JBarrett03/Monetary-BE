@@ -12,6 +12,15 @@ def get_accounts():
 def get_users():
     return globals.db.users
 
+def generate_sort_code():
+    return f"{random.randint(0,99):02d}-{random.randint(0,99):02d}-{random.randint(0,99):02d}"
+
+def generate_unique_sort_code():
+    while True:
+        sort_code = generate_sort_code()
+        if not get_accounts().find_one({ "sortCode": sort_code }):
+            return sort_code
+
 def generate_card_number():
     card_number = ''.join([str(random.randint(0, 9)) for _ in range(16)])
     formatted = f"{card_number[0:4]} {card_number[4:8]} {card_number[8:12]} {card_number[12:16]}"
@@ -112,6 +121,7 @@ def addAccount(userId):
         "budget": None,
         "status": "active",
         "accountNumber": generate_card_number(),
+        "sortCode": generate_unique_sort_code(),
         "isDefault": False,
         "order": account_order,
         "openedAt": datetime.now(UTC).isoformat() + "Z",
