@@ -1,3 +1,5 @@
+from bson import ObjectId
+
 # Test cases for retrieving a transaction by ID
 
 def test_get_transaction_success(client, db):
@@ -65,3 +67,38 @@ def test_get_all_transactions(client, db):
     assert response.status_code == 200
     assert len(response.get_json()) == 2
     
+# Test cases for adding a new transaction
+
+def test_add_transaction_success(client, db):
+    user_id = db.users.insert_one({
+        "email": "testuser@example.com"
+    }).inserted_id
+    
+    account_id = db.accounts.insert_one({
+        "userId": user_id,
+        "balance": 200.00,
+        "status": "active",
+        "accountType": "savings"
+    }).inserted_id
+    
+    response = client.post(
+        f"/api/v1.0/users/{user_id}/accounts/{account_id}/transactions",
+        json={
+            "amount": 50.00,
+            "type": "debit",
+            "merchant": "Amazon",
+            "description": "Purchase of electronics"
+        }
+    )
+    
+    assert response.status_code == 201
+    
+    data = response.get_json()
+    
+    transaction = db.transactions.find_one({
+        "_id": ObjectId(data["transactionId"])
+    })
+    assert transaction is not None
+        
+    updated_account = db.accounts.find_one({ "_id": account_id })
+    assert updated_account["balance"] == 150.00
