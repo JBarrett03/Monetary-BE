@@ -113,3 +113,102 @@ def test_create_user_duplicate_email(client, db):
     assert response.status_code == 409
     assert response.get_json() == { "error": "Email already exists..." }
     
+# Test cases for updating user information
+
+def test_update_user_success(client, db):
+    user_id = db.users.insert_one({
+        "firstName": "John",
+        "lastName": "Doe",
+        "email": "johndoe@example.com",
+        "password": b"hashedpassword",
+        "phone": "1234567890",
+        "address": "123 Main St",
+        "DOB": "1990-01-01",
+        "admin": False,
+        "emailVerified": False,
+        "phoneVerified": False,
+        "createdAt": "2024-01-01T00:00:00Z",
+        "lastLogin": "2024-01-01T00:00:00Z"
+    }).inserted_id
+    
+    update_data = {
+        "firstName": "Johnny",
+        "email": "johnnydoe@example.com"
+    }
+    
+    response = client.put(f"/api/v1.0/users/{user_id}", json=update_data)
+    
+    assert response.status_code == 200
+    
+    updated_user = db.users.find_one({ "_id": ObjectId(user_id) })
+    
+    assert updated_user["firstName"] == "Johnny"
+    assert updated_user["email"] == "johnnydoe@example.com"
+    
+def test_update_user_invalid_id(client):
+    response = client.put("/api/v1.0/users/invalidId", json={
+        "firstName": "Johnny"
+    })
+    
+    assert response.status_code == 400
+    assert response.get_json() == { "error": "Invalid user ID" }
+    
+def test_update_user_not_found(client):
+    fake_id = str(ObjectId())
+    
+    response = client.put(f"/api/v1.0/users/{fake_id}", json={
+        "firstName": "Johnny"
+    })
+    
+    assert response.status_code == 404
+    assert response.get_json() == { "error": "User not found" }
+    
+def test_update_user_no_valid_fields(client, db):
+    user_id = db.users.insert_one({
+        "firstName": "Jane",
+        "email": "janedoe@example.com",
+    }).inserted_id
+    
+    response = client.put(f"/api/v1.0/users/{user_id}", json={
+        "admin": True
+    })
+    
+    assert response.status_code == 400
+    assert response.get_json() == { "error": "No valid fields to update" }
+    
+def test_update_user_single_field(client, db):
+    user_id = db.users.insert_one({
+        "firstName": "John",
+        "lastName": "Doe",
+        "email": "johndoe@example.com",
+        "password": b"hashedpassword",
+    }).inserted_id
+    
+    response = client.put(f"/api/v1.0/users/{user_id}", json={
+        "firstName": "Johnny"
+    })
+    
+    assert response.status_code == 200
+    
+    updated_user = db.users.find_one({ "_id": ObjectId(user_id) })
+    assert updated_user["firstName"] == "Johnny"
+    
+def test_update_user_multiple_fields(client, db):
+    user_id = db.users.insert_one({
+        "firstName": "Jane",
+        "lastName": "Smith",
+        "email": "janesmith@example.com"
+    }).inserted_id
+    
+    response = client.put(f"/api/v1.0/users/{user_id}", json={
+        "firstName": "Janet",
+        "lastName": "Doe",
+        "email": "janetdoe@example.com"
+    })
+    
+    assert response.status_code == 200
+    
+    updated_user = db.users.find_one({ "_id": ObjectId(user_id) })
+    assert updated_user["firstName"] == "Janet"
+    assert updated_user["lastName"] == "Doe"
+    assert updated_user["email"] == "janetdoe@example.com"
