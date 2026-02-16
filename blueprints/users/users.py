@@ -46,7 +46,6 @@ def createUser():
     if not all(field in data for field in required_fields):
         return make_response(jsonify({ "error": "Missing required fields..." }), 400)
     
-    # Prevent duplicate accounts
     if get_users().find_one({ "email": email }):
         return make_response(jsonify({ "error": "Email already exists..." }), 409)
     
