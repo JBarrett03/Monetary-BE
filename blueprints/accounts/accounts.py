@@ -331,11 +331,12 @@ def getAccountByNumber(userId, accountNumber):
         return make_response(jsonify({ "error": "Invalid User Id" }), 400)
     
     normalized_account_number = accountNumber.replace(" ", "")
+    normalized_sort_code = request.args.get("sortCode")
     
     user_accounts = get_accounts().find({ "userId": ObjectId(userId) })
     
     for account in user_accounts:
-        if account["accountNumber"].replace(" ", "") == normalized_account_number:
+        if account["accountNumber"].replace(" ", "") == normalized_account_number and account.get("sortCode") == normalized_sort_code:
             account["_id"] = str(account["_id"])
             account["userId"] = str(account["userId"])
             return make_response(jsonify(account), 200)
