@@ -151,7 +151,7 @@ def addBalance(userId, accountId):
     if not account:
         return make_response(jsonify({ "error": "Account not found" }), 404)
     
-    new_balance = account.get("balance", 0) + amount
+    new_balance = round(float(account.get("balance", 0)) + amount, 2)
     
     get_accounts().update_one(
         { "_id": ObjectId(accountId) },
@@ -163,6 +163,21 @@ def addBalance(userId, accountId):
             }
         }
     )
+    
+    new_transaction = {
+        "userId": ObjectId(userId),
+        "accountId": ObjectId(accountId),
+        "type": "credit",
+        "amount": amount,
+        "status": "completed",
+        "description": "Balance Top-Up",
+        "merchant": "Monetary App",
+        "category": "Deposit",
+        "balanceAfter": new_balance,
+        "createdAt": datetime.now(UTC).isoformat() + "Z"
+    }
+    
+    transaction_result = globals.db.transactions.insert_one(new_transaction)
     
     return make_response(jsonify({ "newBalance": new_balance }), 200)
 

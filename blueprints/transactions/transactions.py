@@ -21,9 +21,16 @@ def getAllTransactions(userId, accountId):
         return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
     
     data_to_return = []
-    for transaction in get_transactions().find({"accountId": ObjectId(accountId)}):
+    
+    transactions = get_transactions().find({
+        "accountId": ObjectId(accountId),
+        "userId": ObjectId(userId)
+    }).sort("createdAt", -1)
+    
+    for transaction in transactions:
         transaction["_id"] = str(transaction["_id"])
         transaction["accountId"] = str(transaction["accountId"])
+        transaction["userId"] = str(transaction["userId"])
         data_to_return.append(transaction)
         
     return make_response(jsonify(data_to_return), 200)
@@ -33,7 +40,7 @@ def getTransaction(userId, accountId, transactionId):
     if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId) or not ObjectId.is_valid(transactionId):
         return make_response(jsonify({ "error": "Invalid User Id, Account Id or Transaction Id" }), 400)
     
-    transaction = get_transactions().find_one({"_id": ObjectId(transactionId), "accountId": ObjectId(accountId)})
+    transaction = get_transactions().find_one({"_id": ObjectId(transactionId), "accountId": ObjectId(accountId), "userId": ObjectId(userId)})
     
     if transaction is None:
         return make_response(jsonify({ "error": "Transaction not found" }), 404)
@@ -67,13 +74,14 @@ def addTransaction(userId, accountId):
             "$set": {
                 "balance": new_balance,
                 "availableBalance": new_balance,
-                "updatedAt": datetime.now(UTC).isoformat()
+                "updatedAt": datetime.now(UTC).isoformat() + "Z"
             }
         }
     )
     
     new_transaction = {
         "accountId": ObjectId(accountId),
+        "userId": ObjectId(userId),
         "type": request.form["type"],
         "amount": amount,
         "status": "completed",
@@ -81,7 +89,7 @@ def addTransaction(userId, accountId):
         "merchant": merchant,
         "category": category,
         "balanceAfter": new_balance,
-        "createdAt": datetime.now(UTC).isoformat()
+        "createdAt": datetime.now(UTC).isoformat() + "Z"
     }
     
     result = get_transactions().insert_one(new_transaction)
