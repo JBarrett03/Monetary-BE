@@ -24,6 +24,21 @@ def generate_unique_sort_code():
 def generate_card_number():
     return ''.join([str(random.randint(0, 9)) for _ in range(16)])
 
+def generate_expiry_date(years: int = 3):
+    now = datetime.now(UTC)
+    expiry = now + timedelta(days=365 * years)
+    
+    expiry_month = expiry.month
+    expiry_year = expiry.year
+    
+    formattedExpiryDate = f"{expiry_month:02d}/{str(expiry_year)[-2:]}"
+    iso_value = expiry.replace(day=1).isoformat() + "Z"
+    
+    return {
+        "formatted": formattedExpiryDate,
+        "iso": iso_value
+    }
+
 @accounts_bp.route("/api/v1.0/users/<string:userId>/accounts", methods=['GET'])
 def getAllUserAccounts(userId):
     if not ObjectId.is_valid(userId):
@@ -109,6 +124,8 @@ def addAccount(userId):
         return make_response(jsonify({ "error": "Invalid account type. Must be 'savings' or 'checking'" }), 400)
     
     account_order = get_accounts().count_documents({ "userId": ObjectId(userId) })
+    
+    expiry_date = generate_expiry_date()
         
     new_account = {
         "userId": ObjectId(userId),
@@ -120,6 +137,8 @@ def addAccount(userId):
         "status": "active",
         "accountNumber": generate_card_number(),
         "sortCode": generate_unique_sort_code(),
+        "expiryDate": expiry_date["formatted"],
+        "expiryDateISO": expiry_date["iso"],
         "isDefault": False,
         "order": account_order,
         "openedAt": datetime.now(UTC).isoformat() + "Z",
