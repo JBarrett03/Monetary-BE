@@ -19,13 +19,13 @@ def get_users():
 def getAllTransactions(userId, accountId):
     if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
         return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
-    
-    data_to_return = []
-    
+        
     transactions = get_transactions().find({
         "accountId": ObjectId(accountId),
         "userId": ObjectId(userId)
     }).sort("createdAt", -1)
+    
+    data_to_return = []
     
     for transaction in transactions:
         transaction["_id"] = str(transaction["_id"])
@@ -40,13 +40,19 @@ def getTransaction(userId, accountId, transactionId):
     if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId) or not ObjectId.is_valid(transactionId):
         return make_response(jsonify({ "error": "Invalid User Id, Account Id or Transaction Id" }), 400)
     
-    transaction = get_transactions().find_one({"_id": ObjectId(transactionId), "accountId": ObjectId(accountId), "userId": ObjectId(userId)})
+    transaction = get_transactions().find_one({
+        "_id": ObjectId(transactionId), 
+        "accountId": ObjectId(accountId),
+        "userId": ObjectId(userId)
+    })
     
     if transaction is None:
         return make_response(jsonify({ "error": "Transaction not found" }), 404)
     
     transaction["_id"] = str(transaction["_id"])
     transaction["accountId"] = str(transaction["accountId"])
+    transaction["userId"] = str(transaction["userId"])
+    
     return make_response(jsonify(transaction), 200)
 
 @transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/transactions", methods=['POST'])
@@ -58,15 +64,26 @@ def addTransaction(userId, accountId):
     if not user:
         return make_response(jsonify({ "error": "User not found" }), 404)
     
-    account = get_accounts().find_one({ "_id": ObjectId(accountId), "userId": ObjectId(userId) })
+    account = get_accounts().find_one({
+        "_id": ObjectId(accountId), 
+        "userId": ObjectId(userId) 
+    })
     if not account:
         return make_response(jsonify({ "error": "Account not found" }), 404)
     
-    amount = float(request.form["amount"])
-    new_balance = round(float(account["balance"]) - amount, 2)
+    try:
+        amount = float(request.form["amount"])
+    except (KeyError, ValueError):
+        return make_response(jsonify({ "error": "invalid or missing amount" }), 400)
+    
     merchant = request.form["merchant"]
     description = request.form["description"]
-    category = autoCategoriseTransaction(merchant, description)
+    transaction_type = request.form.get("type", "unknown")
+    current_balance = float(account.get("balance", 0))
+    new_balance = round(current_balance + amount, 2)
+    
+    if new_balance < 0:
+        return make_response(jsonify({ "error": "Insufficient funds" }), 400)
     
     get_accounts().update_one(
         { "_id": ObjectId(accountId) },
@@ -79,10 +96,12 @@ def addTransaction(userId, accountId):
         }
     )
     
+    category = autoCategoriseTransaction(merchant, description)
+    
     new_transaction = {
         "accountId": ObjectId(accountId),
         "userId": ObjectId(userId),
-        "type": request.form["type"],
+        "type": transaction_type,
         "amount": amount,
         "status": "completed",
         "description": description,
@@ -93,6 +112,7 @@ def addTransaction(userId, accountId):
     }
     
     result = get_transactions().insert_one(new_transaction)
+    
     return make_response(jsonify({ "transactionId": str(result.inserted_id), "newBalance": new_balance }), 201)
 
 def autoCategoriseTransaction(merchant: str, description: str) -> str:
