@@ -124,8 +124,8 @@ def addAccount(userId):
     if not nickname:
         nickname = f"{accountType.title()} Account"
     
-    if accountType not in ["savings", "checking"]:
-        return make_response(jsonify({ "error": "Invalid account type. Must be 'savings' or 'checking'" }), 400)
+    if accountType not in ["savings", "current"]:
+        return make_response(jsonify({ "error": "Invalid account type. Must be 'savings' or 'current'" }), 400)
     
     account_order = get_accounts().count_documents({ "userId": ObjectId(userId) })
     expiry_date = generate_expiry_date()
