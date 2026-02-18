@@ -119,6 +119,10 @@ def addAccount(userId):
         return make_response(jsonify({ "error": "accountType and currency are required fields" }), 400)
     
     accountType = accountType.lower()
+    nickname = data.get("nickname")
+    
+    if not nickname:
+        nickname = f"{accountType.title()} Account"
     
     if accountType not in ["savings", "checking"]:
         return make_response(jsonify({ "error": "Invalid account type. Must be 'savings' or 'checking'" }), 400)
@@ -133,6 +137,7 @@ def addAccount(userId):
         "currency": currency,
         "balance": 0.00,
         "availableBalance": 0.00,
+        "nickname": nickname,
         "budget": None,
         "status": "active",
         "accountNumber": generate_card_number(),
@@ -433,3 +438,18 @@ def getDefaultAccount(userId):
     default_account["userId"] = str(default_account["userId"])
     
     return make_response(jsonify(default_account), 200)
+
+@accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/search", methods=['GET'])
+def searchAccounts(userId):
+    query = request.args.get("q", "")
+    
+    accounts = list(get_accounts().find({
+        "userId": ObjectId(userId),
+        "nickname": { "$regex": query, "$options": "i" },
+    }))
+    
+    for account in accounts:
+        account["_id"] = str(account["_id"])
+        account["userId"] = str(account["userId"])
+        
+    return jsonify(accounts), 200
