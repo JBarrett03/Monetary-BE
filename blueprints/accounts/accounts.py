@@ -128,8 +128,13 @@ def addAccount(userId):
         return make_response(jsonify({ "error": "Invalid account type. Must be 'savings' or 'checking'" }), 400)
     
     account_order = get_accounts().count_documents({ "userId": ObjectId(userId) })
-    
     expiry_date = generate_expiry_date()
+    
+    existing_accounts = get_accounts().count_documents({
+        "userId": ObjectId(userId),
+        "status": { "$ne": "archived" }
+    })
+    is_default = existing_accounts == 0
         
     new_account = {
         "userId": ObjectId(userId),
@@ -144,7 +149,7 @@ def addAccount(userId):
         "sortCode": generate_unique_sort_code(),
         "expiryDate": expiry_date["formatted"],
         "expiryDateISO": expiry_date["iso"],
-        "isDefault": False,
+        "isDefault": is_default,
         "order": account_order,
         "openedAt": datetime.now(UTC).isoformat() + "Z",
         "updatedAt": datetime.now(UTC).isoformat() + "Z"
