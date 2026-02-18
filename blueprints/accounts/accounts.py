@@ -13,7 +13,7 @@ def get_users():
     return globals.db.users
 
 def generate_sort_code():
-    return f"{random.randint(0,99):02d}-{random.randint(0,99):02d}-{random.randint(0,99):02d}"
+    return f"{random.randint(0,99):02d}{random.randint(0,99):02d}{random.randint(0,99):02d}"
 
 def generate_unique_sort_code():
     while True:
@@ -22,9 +22,7 @@ def generate_unique_sort_code():
             return sort_code
 
 def generate_card_number():
-    card_number = ''.join([str(random.randint(0, 9)) for _ in range(16)])
-    formatted = f"{card_number[0:4]} {card_number[4:8]} {card_number[8:12]} {card_number[12:16]}"
-    return formatted
+    return ''.join([str(random.randint(0, 9)) for _ in range(16)])
 
 @accounts_bp.route("/api/v1.0/users/<string:userId>/accounts", methods=['GET'])
 def getAllUserAccounts(userId):
@@ -138,16 +136,21 @@ def addBalance(userId, accountId):
     if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
         return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
     
-    amount = request.form.get("amount")
-    if amount is None:
+    data = request.get_json()
+    
+    if not data or "amount" not in data:
         return make_response(jsonify({ "error": "Amount is required" }), 400)
     
     try:
-        amount = float(amount)
+        amount = float(data["amount"])
     except ValueError:
         return make_response(jsonify({ "error": "Invalid amount format" }), 400)
     
-    account = get_accounts().find_one({ "_id": ObjectId(accountId), "userId": ObjectId(userId) })
+    account = get_accounts().find_one({
+        "_id": ObjectId(accountId), 
+        "userId": ObjectId(userId) 
+    })
+    
     if not account:
         return make_response(jsonify({ "error": "Account not found" }), 404)
     
@@ -177,7 +180,7 @@ def addBalance(userId, accountId):
         "createdAt": datetime.now(UTC).isoformat() + "Z"
     }
     
-    transaction_result = globals.db.transactions.insert_one(new_transaction)
+    globals.db.transactions.insert_one(new_transaction)
     
     return make_response(jsonify({ "newBalance": new_balance }), 200)
 
@@ -345,18 +348,22 @@ def getAccountByNumber(userId, accountNumber):
     if not ObjectId.is_valid(userId):
         return make_response(jsonify({ "error": "Invalid User Id" }), 400)
     
-    normalized_account_number = accountNumber.replace(" ", "")
-    normalized_sort_code = request.args.get("sortCode")
+    normalized_account_number = ''.join(filter(str.isdigit, accountNumber))
+    normalized_sort_code = ''.join(filter(str.isdigit, request.args.get("sortCode", "")))
     
-    user_accounts = get_accounts().find({ "userId": ObjectId(userId) })
+    account = get_accounts().find_one({
+        "userId": ObjectId(userId),
+        "accountNumber": normalized_account_number,
+        "sortCode": normalized_sort_code
+    })
     
-    for account in user_accounts:
-        if account["accountNumber"].replace(" ", "") == normalized_account_number and account.get("sortCode") == normalized_sort_code:
-            account["_id"] = str(account["_id"])
-            account["userId"] = str(account["userId"])
-            return make_response(jsonify(account), 200)
+    if not account:
+        return make_response(jsonify({ "error": "Account not found" }), 404)
     
-    return make_response(jsonify({ "error": "Account not found" }), 404)
+    account["_id"] = str(account["_id"])
+    account["userId"] = str(account["userId"])
+    
+    return make_response(jsonify(account), 200)
 
 @accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/set-default", methods=['PUT'])
 def setDefaultAccount(userId, accountId):
