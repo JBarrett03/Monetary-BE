@@ -71,16 +71,32 @@ def addTransaction(userId, accountId):
     if not account:
         return make_response(jsonify({ "error": "Account not found" }), 404)
     
+    data = request.get_json()
+    if not data:
+        return make_response(jsonify({ "error": "Request body must be JSON" }), 400)
+    
     try:
-        amount = float(request.form["amount"])
+        amount = float(data.get("amount"))
     except (KeyError, ValueError):
         return make_response(jsonify({ "error": "invalid or missing amount" }), 400)
     
-    merchant = request.form["merchant"]
-    description = request.form["description"]
-    transaction_type = request.form.get("type", "unknown")
-    current_balance = float(account.get("balance", 0))
-    new_balance = round(current_balance + amount, 2)
+    if amount <= 0:
+        return make_response(jsonify({ "error": "Amount must be greater than zero" }), 400)
+    
+    transaction_direction = data.get("direction")
+    transaction_type = data.get("type", "unknown")
+    merchant = data.get("merchant", "")
+    description = data.get("description", "")
+    
+    if transaction_direction not in ["in", "out"]:
+        return make_response(jsonify({ "error": "Direction must be 'in' or 'out'" }), 400)
+    
+    balance = float(account.get("balance", 0))
+    
+    if transaction_direction == "out":
+        new_balance = round(balance - amount, 2)
+    else:
+        new_balance = round(balance + amount, 2)
     
     if new_balance < 0:
         return make_response(jsonify({ "error": "Insufficient funds" }), 400)
@@ -91,7 +107,7 @@ def addTransaction(userId, accountId):
             "$set": {
                 "balance": new_balance,
                 "availableBalance": new_balance,
-                "updatedAt": datetime.now(UTC).isoformat() + "Z"
+                "updatedAt": datetime.now(UTC)
             }
         }
     )
@@ -101,6 +117,7 @@ def addTransaction(userId, accountId):
     new_transaction = {
         "accountId": ObjectId(accountId),
         "userId": ObjectId(userId),
+        "direction": transaction_direction,
         "type": transaction_type,
         "amount": amount,
         "status": "completed",
@@ -108,7 +125,7 @@ def addTransaction(userId, accountId):
         "merchant": merchant,
         "category": category,
         "balanceAfter": new_balance,
-        "createdAt": datetime.now(UTC).isoformat() + "Z"
+        "createdAt": datetime.now(UTC).isoformat()
     }
     
     result = get_transactions().insert_one(new_transaction)

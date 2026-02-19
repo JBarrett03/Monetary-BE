@@ -199,6 +199,7 @@ def addBalance(userId, accountId):
     new_transaction = {
         "userId": ObjectId(userId),
         "accountId": ObjectId(accountId),
+        "direction": "in",
         "type": "credit",
         "amount": amount,
         "status": "completed",
