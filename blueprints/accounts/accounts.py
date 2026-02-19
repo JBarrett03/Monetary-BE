@@ -32,7 +32,7 @@ def generate_expiry_date(years: int = 3):
     expiry_year = expiry.year
     
     formattedExpiryDate = f"{expiry_month:02d}/{str(expiry_year)[-2:]}"
-    iso_value = expiry.replace(day=1).isoformat() + "Z"
+    iso_value = expiry.replace(day=1)
     
     return {
         "formatted": formattedExpiryDate,
@@ -71,8 +71,8 @@ def getUserAccount(userId, accountId):
         
         budget = account["budget"]
         
-        start_budget = datetime.fromisoformat(budget["startDate"])
-        end_budget = datetime.fromisoformat(budget["endDate"])
+        start_budget = budget["startDate"]
+        end_budget = budget["endDate"]
         
         transactions = list(globals.db.transactions.find({
             "accountId": ObjectId(accountId),
@@ -84,7 +84,7 @@ def getUserAccount(userId, accountId):
         
         for transaction in transactions:
             if "createdAt" in transaction:
-                created_at = datetime.fromisoformat(transaction["createdAt"].replace("Z", "+00:00"))
+                created_at = transaction["createdAt"]
                 if start_budget <= created_at <= end_budget:
                     total_spent += float(transaction["amount"])
         
@@ -151,8 +151,8 @@ def addAccount(userId):
         "expiryDateISO": expiry_date["iso"],
         "isDefault": is_default,
         "order": account_order,
-        "openedAt": datetime.now(UTC).isoformat() + "Z",
-        "updatedAt": datetime.now(UTC).isoformat() + "Z"
+        "openedAt": datetime.now(UTC),
+        "updatedAt": datetime.now(UTC)
     }
     
     result = get_accounts().insert_one(new_account)
@@ -191,7 +191,7 @@ def addBalance(userId, accountId):
             "$set": {
                 "balance": new_balance,
                 "availableBalance": new_balance,
-                "updatedAt": datetime.now(UTC).isoformat() + "Z"
+                "updatedAt": datetime.now(UTC)
             }
         }
     )
@@ -206,7 +206,7 @@ def addBalance(userId, accountId):
         "merchant": "Monetary App",
         "category": "Deposit",
         "balanceAfter": new_balance,
-        "createdAt": datetime.now(UTC).isoformat() + "Z"
+        "createdAt": datetime.now(UTC)
     }
     
     globals.db.transactions.insert_one(new_transaction)
@@ -229,7 +229,7 @@ def saveAccountOrder(userId):
             {
                 "$set": {
                     "order": item["order"],
-                    "updatedAt": datetime.now(UTC).isoformat() + "Z"
+                    "updatedAt": datetime.now(UTC)
                 }
             }
         )
@@ -249,7 +249,7 @@ def archiveAccount(userId, accountId):
         {
             "$set": {
                 "status": "archived",
-                "updatedAt": datetime.now(UTC).isoformat() + "Z"
+                "updatedAt": datetime.now(UTC)
             }
         }
     )
@@ -288,7 +288,7 @@ def restoreAccount(userId, accountId):
         {
             "$set": {
                 "status": "active",
-                "updatedAt": datetime.now(UTC).isoformat() + "Z"
+                "updatedAt": datetime.now(UTC)
             }
         }
     )
@@ -364,7 +364,7 @@ def setBudget(userId, accountId):
         {
             "$set": {
                 "budget": budget, 
-                "updatedAt": datetime.now(UTC).isoformat() + "Z"
+                "updatedAt": datetime.now(UTC)
             }
         }
     )
@@ -406,7 +406,7 @@ def setDefaultAccount(userId, accountId):
         {
             "$set": {
                 "isDefault": False,
-                "updatedAt": datetime.now(UTC).isoformat() + "Z"
+                "updatedAt": datetime.now(UTC)
             }
         }
     )
@@ -419,7 +419,7 @@ def setDefaultAccount(userId, accountId):
         {
             "$set": {
                 "isDefault": True,
-                "updatedAt": datetime.now(UTC).isoformat() + "Z"
+                "updatedAt": datetime.now(UTC)
             }
         }
     )
