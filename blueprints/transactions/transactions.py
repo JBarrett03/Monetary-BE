@@ -141,3 +141,33 @@ def autoCategoriseTransaction(merchant: str, description: str) -> str:
                 return category
     
     return "Miscellaneous"
+
+@transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/transactions/summary", methods=['GET'])
+def getTransactionsSummary(userId, accountId):
+    
+    direction = request.args.get("direction")
+    
+    if direction not in ["in", "out"]:
+        return make_response(jsonify({ "error": "Direction query parameter must be 'in' or 'out'" }), 400)
+    
+    summary = [
+        {
+            "$match": {
+                "userId": ObjectId(userId),
+                "accountId": ObjectId(accountId),
+                "direction": direction,
+                "status": "completed"
+            }
+        },
+        {
+            "$group": {
+                "_id": None,
+                "totalAmount": { "$sum": "$amount" },
+            }
+        }
+    ]
+    
+    result = list(get_transactions().aggregate(summary))
+    total = result[0]["totalAmount"]
+    
+    return make_response(jsonify({ "totalAmount": total }), 200)
