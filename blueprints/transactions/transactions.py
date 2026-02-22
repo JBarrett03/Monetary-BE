@@ -168,6 +168,6 @@ def getTransactionsSummary(userId, accountId):
     ]
     
     result = list(get_transactions().aggregate(summary))
-    total = result[0]["totalAmount"]
+    total = result[0]["totalAmount"] if result else 0
     
     return make_response(jsonify({ "totalAmount": total }), 200)
