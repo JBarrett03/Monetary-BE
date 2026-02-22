@@ -6,11 +6,12 @@ import globals
 
 users_bp = Blueprint('users_bp', __name__)
 
-users = globals.db.users
+def get_users():
+    return globals.db.users
 
 @users_bp.route("/api/v1.0/users/<string:id>", methods=["GET"])
 def getUser(id):
-    user = users.find_one({ "_id": ObjectId(id) })
+    user = get_users().find_one({ "_id": ObjectId(id) })
     if user is not None:
         user["_id"] = str(user["_id"])
         user.pop("password", None)
@@ -21,7 +22,7 @@ def getUser(id):
 @users_bp.route("/api/v1.0/users", methods=["GET"])
 def getUsers():
     data_to_return = []
-    for user in users.find():
+    for user in get_users().find():
         user["_id"] = str(user["_id"])
         user.pop("password", None)
         data_to_return.append(user)
@@ -45,8 +46,7 @@ def createUser():
     if not all(field in data for field in required_fields):
         return make_response(jsonify({ "error": "Missing required fields..." }), 400)
     
-    # Prevent duplicate accounts
-    if users.find_one({ "email": email }):
+    if get_users().find_one({ "email": email }):
         return make_response(jsonify({ "error": "Email already exists..." }), 409)
     
     new_user = {
@@ -64,7 +64,7 @@ def createUser():
         "lastLogin": datetime.now(UTC).isoformat() + "Z"
     }
     
-    result = users.insert_one(new_user)
+    result = get_users().insert_one(new_user)
     return make_response(jsonify({ "id": str(result.inserted_id), "message": "User created successfully" }), 201)
     
 @users_bp.route("/api/v1.0/users/<string:id>", methods=['PUT'])
@@ -89,7 +89,7 @@ def updateUser(id):
     if not updated_fields:
         return make_response(jsonify({ "error": "No valid fields to update" }), 400)
     
-    result = users.update_one({ "_id": ObjectId(id) }, { "$set": updated_fields })
+    result = get_users().update_one({ "_id": ObjectId(id) }, { "$set": updated_fields })
     
     if result.matched_count == 1:
         return make_response(jsonify({ "message": "User updated successfully" }), 200)
@@ -99,7 +99,7 @@ def updateUser(id):
     
 @users_bp.route("/api/v1.0/users/<string:id>", methods=['DELETE'])
 def deleteUser(id):
-    result = users.delete_one({ "_id": ObjectId(id) })
+    result = get_users().delete_one({ "_id": ObjectId(id) })
     if result.deleted_count == 1:
         return make_response(jsonify( {} ), 204)
     else:

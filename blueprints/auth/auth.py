@@ -5,8 +5,12 @@ import jwt
 import bcrypt
 
 auth_bp = Blueprint('auth_bp', __name__)
-users = globals.db.users
-blacklist = globals.db.blacklist
+
+def get_users():
+    return globals.db.users
+
+def get_blacklist():
+    return globals.db.blacklist
 
 @auth_bp.route("/api/v1.0/login", methods=['POST'])
 def login():
@@ -16,7 +20,7 @@ def login():
         return make_response(jsonify({ "error": "Email and Password are required..." }), 400)
     
     email = data["email"].strip().lower()
-    user = users.find_one({ "email": email })
+    user = get_users().find_one({ "email": email })
     
     if not user:
         return make_response(jsonify({ "error": "Invalid email or password..." }), 401)
@@ -42,5 +46,5 @@ def logout():
     if not token:
         return make_response(jsonify({ "error": "Token is missing..." }), 400)
     
-    blacklist.insert_one({ "token": token })
+    get_blacklist().insert_one({ "token": token })
     return make_response(jsonify({ "message": "Logout successful" }), 200)
