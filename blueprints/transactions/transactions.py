@@ -1,8 +1,9 @@
 from flask import make_response, jsonify, request, Blueprint
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta
 from bson import ObjectId
 import globals
 from category_rules import CATEGORY_RULES
+import random
 
 transactions_bp = Blueprint('transactions_bp', __name__)
 
@@ -14,6 +15,14 @@ def get_accounts():
 
 def get_users():
     return globals.db.users
+
+def random_date():
+    start_date = datetime(2025, 1, 1, tzinfo=UTC)
+    end_date = datetime.now(UTC)
+    
+    time_between = end_date - start_date
+    random_seconds = random.randint(0, int(time_between.total_seconds()))
+    return start_date + timedelta(seconds=random_seconds)
 
 @transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/transactions", methods=['GET'])
 def getAllTransactions(userId, accountId):
@@ -125,7 +134,7 @@ def addTransaction(userId, accountId):
         "merchant": merchant,
         "category": category,
         "balanceAfter": new_balance,
-        "createdAt": datetime.now(UTC).isoformat()
+        "createdAt": random_date()
     }
     
     result = get_transactions().insert_one(new_transaction)
@@ -171,3 +180,46 @@ def getTransactionsSummary(userId, accountId):
     total = result[0]["totalAmount"] if result else 0
     
     return make_response(jsonify({ "totalAmount": total }), 200)
+
+@transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/transactions/category-summary", methods=['GET'])
+def getCategorySummary(userId, accountId):
+    
+    if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
+        return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
+    
+    direction = request.args.get("direction")
+    
+    if direction not in ["in", "out"]:
+        return make_response(jsonify({ "error": "Direction query parameter must be 'in' or 'out'" }), 400)
+    
+    summary = [
+        {
+            "$match": {
+                "userId": ObjectId(userId),
+                "accountId": ObjectId(accountId),
+                "direction": direction,
+                "status": "completed"
+            }
+        },
+        {
+            "$group": {
+                "_id": "$category",
+                "totalAmount": { "$sum": "$amount" },
+            }
+        },
+        {
+            "$sort": { "totalAmount": -1 }
+        }
+    ]
+    
+    result = list(get_transactions().aggregate(summary))
+    
+    response = [
+        {
+            "category": item["_id"],
+            "totalAmount": item["totalAmount"]
+        }
+        for item in result
+    ]
+    
+    return make_response(jsonify(response), 200)
