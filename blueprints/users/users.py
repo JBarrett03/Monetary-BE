@@ -60,6 +60,8 @@ def createUser():
         "admin": False,
         "emailVerified": False,
         "phoneVerified": False,
+        "failedAttempts": 0,
+        "lockUntil": None,
         "createdAt": datetime.now(UTC).isoformat() + "Z",
         "lastLogin": datetime.now(UTC).isoformat() + "Z"
     }
