@@ -3,7 +3,6 @@ from datetime import datetime, UTC, timedelta
 from bson import ObjectId
 import globals
 from category_rules import CATEGORY_RULES
-import random
 
 transactions_bp = Blueprint('transactions_bp', __name__)
 
@@ -27,8 +26,19 @@ def get_period_range(period: str, date: datetime):
         raise ValueError("Invalid period. ")
     return start, date
 
+def autoCategoriseTransaction(merchant: str, description: str) -> str:
+    text = f"{merchant} {description}".lower()
+    
+    for category, keywords in CATEGORY_RULES.items():
+        for keyword in keywords:
+            if keyword in text:
+                return category
+    
+    return "Miscellaneous"
+
 @transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/transactions", methods=['GET'])
 def getAllTransactions(userId, accountId):
+    
     if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
         return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
         
@@ -69,6 +79,7 @@ def getTransaction(userId, accountId, transactionId):
 
 @transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/transactions", methods=['POST'])
 def addTransaction(userId, accountId):
+    
     if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
         return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
     
@@ -150,16 +161,6 @@ def addTransaction(userId, accountId):
     
     return make_response(jsonify({ "transactionId": str(result.inserted_id), "newBalance": new_balance }), 201)
 
-def autoCategoriseTransaction(merchant: str, description: str) -> str:
-    text = f"{merchant} {description}".lower()
-    
-    for category, keywords in CATEGORY_RULES.items():
-        for keyword in keywords:
-            if keyword in text:
-                return category
-    
-    return "Miscellaneous"
-
 @transactions_bp.route("/api/v1.0/users/<string:userId>/transactions/summary", methods=['GET'])
 def getTransactionsSummary(userId):
     
@@ -178,14 +179,9 @@ def getTransactionsSummary(userId):
         "status": "completed"
     }
     
-    accountId = request.args.get("accountId")
-    if accountId and ObjectId.is_valid(accountId):
-        match_stage["accountId"] = ObjectId(accountId)
-    
     if period:
         try:
-            date = datetime.now(UTC)
-            start, end = get_period_range(period, date)
+            start, end = get_period_range(period, datetime.now(UTC))
             match_stage["createdAt"] = {
                 "$gte": start, 
                 "$lte": end 
@@ -193,17 +189,45 @@ def getTransactionsSummary(userId):
         except ValueError:
             return make_response(jsonify({ "error": "Invalid period" }), 400)
     
-    summary = [
+    result = list(get_transactions().aggregate([
         { "$match": match_stage },
-        {
-            "$group": {
-                "_id": None,
-                "totalAmount": { "$sum": "$amount" },
-            }
-        }
-    ]
+        { "$group": { "_id": None, "totalAmount": { "$sum": "$amount" }}}
+    ]))
     
-    result = list(get_transactions().aggregate(summary))
+    total_amount = result[0]["totalAmount"] if result else 0
+    
+    return make_response(jsonify({ "period": period, "totalAmount": total_amount }), 200)
+
+@transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/transactions/summary", methods=['GET'])
+def getAccountTransactionSummary(userId, accountId):
+    
+    if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
+        return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
+    
+    direction = request.args.get("direction")
+    period = request.args.get("period")
+    
+    if direction not in ["in", "out"]:
+        return make_response(jsonify({ "error": "Direction query parameter must be 'in' or 'out'" }), 400)
+    
+    match_stage = {
+        "userId": ObjectId(userId),
+        "accountId": ObjectId(accountId),
+        "direction": direction,
+        "status": "completed"
+    }
+    
+    if period:
+        try:
+            start, end = get_period_range(period, datetime.now(UTC))
+            match_stage["createdAt"] = { "$gte": start, "$lte": end }
+        except ValueError:
+            return make_response(jsonify({ "error": "Invalid period" }), 400)
+    
+    result = list(get_transactions().aggregate([
+        { "$match": match_stage },
+        { "$group": { "_id": None, "totalAmount": { "$sum": "$amount" }}}
+    ]))
     
     total_amount = result[0]["totalAmount"] if result else 0
     
@@ -230,26 +254,16 @@ def getCategorySummary(userId, accountId):
     
     if period:
         try:
-            date = datetime.now(UTC)
-            start, end = get_period_range(period, date)
+            start, end = get_period_range(period, datetime.now(UTC))
             match_stage["createdAt"] = { "$gte": start, "$lte": end }
         except ValueError:
             return make_response(jsonify({ "error": "Invalid period" }), 400)
     
-    summary = [
+    result = list(get_transactions().aggregate([
         { "$match": match_stage },
-        {
-            "$group": {
-                "_id": "$category",
-                "totalAmount": { "$sum": "$amount" },
-            }
-        },
-        {
-            "$sort": { "totalAmount": -1 }
-        }
-    ]
-    
-    result = list(get_transactions().aggregate(summary))
+        { "$group": { "_id": "$category", "totalAmount": { "$sum": "$amount" }}},
+        { "$sort": { "totalAmount": -1 }}
+    ]))
     
     response = [
         {
