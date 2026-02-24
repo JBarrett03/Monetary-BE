@@ -83,16 +83,12 @@ def getUserAccount(userId, accountId):
         total_spent = 0.00
         
         for transaction in transactions:
-            if "createdAt" in transaction:
-                created_at = transaction["createdAt"]
-                if start_budget <= created_at <= end_budget:
-                    total_spent += float(transaction["amount"])
+            created_at = transaction.get("createdAt")
+            if created_at and start_budget <= created_at <= end_budget:
+                total_spent += float(transaction["amount"])
         
-        remaining_budget = float(budget["amount"]) - total_spent
+        remaining_budget = max(float(budget["amount"]) - total_spent, 0.00)
         
-        if remaining_budget < 0:
-            remaining_budget = 0.00
-            
         account["budgetSpent"] = total_spent
         account["budgetRemaining"] = remaining_budget
         
@@ -353,8 +349,8 @@ def setBudget(userId, accountId):
     budget = {
         "amount": float(amount),
         "period": budget_period,
-        "startDate": start.isoformat(),
-        "endDate": end.isoformat()
+        "startDate": start,
+        "endDate": end
     }
     
     get_accounts().update_one(
