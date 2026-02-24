@@ -2,6 +2,7 @@ import random
 from flask import make_response, jsonify, request, Blueprint
 from datetime import datetime, UTC, timedelta
 from bson import ObjectId
+from blueprints.transactions.transactions import get_period_range
 import globals
 
 accounts_bp = Blueprint('accounts_bp', __name__)
@@ -60,6 +61,7 @@ def getUserAccount(userId, accountId):
         return make_response(jsonify({ "error": "Invalid user Id or Account Id" }), 400)
     
     account = get_accounts().find_one({"_id": ObjectId(accountId), "userId": ObjectId(userId)})
+    period = request.args.get("period")
     
     if account is None:
         return make_response(jsonify({ "error": "Account not found" }), 404)
@@ -74,11 +76,25 @@ def getUserAccount(userId, accountId):
         start_budget = budget["startDate"]
         end_budget = budget["endDate"]
         
-        transactions = list(globals.db.transactions.find({
+        transactions = {
             "accountId": ObjectId(accountId),
             "userId": ObjectId(userId),
-            "type": "debit"
-        }))
+            "direction": "out",
+            "status": "completed"
+        }
+        
+        if period:
+            try:
+                date = datetime.now(UTC)
+                start_budget, end_budget = get_period_range(period, date)
+                transactions["createdAt"] = { "$gte": start_budget, "$lte": end_budget}
+            except ValueError:
+                return make_response(jsonify({ "error": "Invalid period" }), 400)
+        else:
+            start_budget = budget["startDate"]
+            end_budget = budget["endDate"]
+        
+        transactions = list(globals.db.transactions.find(transactions))
         
         total_spent = 0.00
         
@@ -195,7 +211,9 @@ def addBalance(userId, accountId):
     new_transaction = {
         "userId": ObjectId(userId),
         "accountId": ObjectId(accountId),
+        "accountType": account["accountType"],
         "direction": "in",
+        "isBudgetTransaction": bool(account.get("budget")),
         "type": "credit",
         "amount": amount,
         "status": "completed",

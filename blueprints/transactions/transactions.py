@@ -16,13 +16,16 @@ def get_accounts():
 def get_users():
     return globals.db.users
 
-def random_date():
-    start_date = datetime(2025, 1, 1, tzinfo=UTC)
-    end_date = datetime.now(UTC)
-    
-    time_between = end_date - start_date
-    random_seconds = random.randint(0, int(time_between.total_seconds()))
-    return start_date + timedelta(seconds=random_seconds)
+def get_period_range(period: str, date: datetime):    
+    if period == "Last Week":
+        start = date - timedelta(days=7)
+    elif period == "Last Month":
+        start = date - timedelta(days=30)
+    elif period == "Last Year":
+        start = date - timedelta(days=365)
+    else:
+        raise ValueError("Invalid period. ")
+    return start, date
 
 @transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/transactions", methods=['GET'])
 def getAllTransactions(userId, accountId):
@@ -102,6 +105,10 @@ def addTransaction(userId, accountId):
     
     balance = float(account.get("balance", 0))
     
+    is_budget_transaction = False
+    if transaction_direction == 'in' and account.get("budget"):
+        is_budget_transaction = True
+        
     if transaction_direction == "out":
         new_balance = round(balance - amount, 2)
     else:
@@ -126,7 +133,9 @@ def addTransaction(userId, accountId):
     new_transaction = {
         "accountId": ObjectId(accountId),
         "userId": ObjectId(userId),
+        "accountType": account["accountType"],
         "direction": transaction_direction,
+        "isBudgetTransaction": is_budget_transaction,
         "type": transaction_type,
         "amount": amount,
         "status": "completed",
@@ -134,7 +143,7 @@ def addTransaction(userId, accountId):
         "merchant": merchant,
         "category": category,
         "balanceAfter": new_balance,
-        "createdAt": random_date()
+        "createdAt": datetime.now(UTC)
     }
     
     result = get_transactions().insert_one(new_transaction)
@@ -151,23 +160,41 @@ def autoCategoriseTransaction(merchant: str, description: str) -> str:
     
     return "Miscellaneous"
 
-@transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/transactions/summary", methods=['GET'])
-def getTransactionsSummary(userId, accountId):
+@transactions_bp.route("/api/v1.0/users/<string:userId>/transactions/summary", methods=['GET'])
+def getTransactionsSummary(userId):
     
+    if not ObjectId.is_valid(userId):
+        return make_response(jsonify({ "error": "Invalid User Id" }), 400)
+        
     direction = request.args.get("direction")
+    period = request.args.get("period")
     
     if direction not in ["in", "out"]:
         return make_response(jsonify({ "error": "Direction query parameter must be 'in' or 'out'" }), 400)
     
-    summary = [
-        {
-            "$match": {
-                "userId": ObjectId(userId),
-                "accountId": ObjectId(accountId),
-                "direction": direction,
-                "status": "completed"
+    match_stage = {
+        "userId": ObjectId(userId),
+        "direction": direction,
+        "status": "completed"
+    }
+    
+    accountId = request.args.get("accountId")
+    if accountId and ObjectId.is_valid(accountId):
+        match_stage["accountId"] = ObjectId(accountId)
+    
+    if period:
+        try:
+            date = datetime.now(UTC)
+            start, end = get_period_range(period, date)
+            match_stage["createdAt"] = {
+                "$gte": start, 
+                "$lte": end 
             }
-        },
+        except ValueError:
+            return make_response(jsonify({ "error": "Invalid period" }), 400)
+    
+    summary = [
+        { "$match": match_stage },
         {
             "$group": {
                 "_id": None,
@@ -177,9 +204,10 @@ def getTransactionsSummary(userId, accountId):
     ]
     
     result = list(get_transactions().aggregate(summary))
-    total = result[0]["totalAmount"] if result else 0
     
-    return make_response(jsonify({ "totalAmount": total }), 200)
+    total_amount = result[0]["totalAmount"] if result else 0
+    
+    return make_response(jsonify({ "period": period, "totalAmount": total_amount }), 200)
 
 @transactions_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>/transactions/category-summary", methods=['GET'])
 def getCategorySummary(userId, accountId):
@@ -188,19 +216,28 @@ def getCategorySummary(userId, accountId):
         return make_response(jsonify({ "error": "Invalid User Id or Account Id" }), 400)
     
     direction = request.args.get("direction")
+    period = request.args.get("period")
     
     if direction not in ["in", "out"]:
         return make_response(jsonify({ "error": "Direction query parameter must be 'in' or 'out'" }), 400)
     
+    match_stage = {
+        "userId": ObjectId(userId),
+        "accountId": ObjectId(accountId),
+        "direction": direction,
+        "status": "completed"
+    }
+    
+    if period:
+        try:
+            date = datetime.now(UTC)
+            start, end = get_period_range(period, date)
+            match_stage["createdAt"] = { "$gte": start, "$lte": end }
+        except ValueError:
+            return make_response(jsonify({ "error": "Invalid period" }), 400)
+    
     summary = [
-        {
-            "$match": {
-                "userId": ObjectId(userId),
-                "accountId": ObjectId(accountId),
-                "direction": direction,
-                "status": "completed"
-            }
-        },
+        { "$match": match_stage },
         {
             "$group": {
                 "_id": "$category",
