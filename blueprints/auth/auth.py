@@ -3,7 +3,6 @@ from datetime import datetime, UTC, timedelta
 import globals
 import jwt
 import bcrypt
-from pymongo import ReturnDocument
 from decorators import limiter
 
 auth_bp = Blueprint('auth_bp', __name__)
@@ -28,7 +27,7 @@ def login():
     if not user:
         return make_response(jsonify({ "error": "Invalid email or password..." }), 401)
     
-    date = datetime.utcnow()
+    date = datetime.now(UTC)
     
     lock_until = user.get("lockUntil")
     if lock_until and date < lock_until:
