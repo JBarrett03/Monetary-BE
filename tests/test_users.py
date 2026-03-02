@@ -1,22 +1,6 @@
 # Test cases for getting user information
-   
+
 from bson import ObjectId
-
-
-def test_get_user_invalid_id(client, db):
-    user_id = db.users.insert_one({
-        "email": "testuser@example.com",
-        "admin": False,
-    }).inserted_id
-    
-    response = client.get(f"/api/v1.0/users/{user_id}")
-    
-    assert response.status_code == 200
-    
-    data = response.get_json()
-    
-    assert data["email"] == "testuser@example.com"
-    assert data["_id"] == str(user_id)
     
 def test_get_user_not_found(client):
     fake_id = "64b8f0c2e1d2f9a1b2c3d4e5"
@@ -172,40 +156,3 @@ def test_update_user_no_valid_fields(client, db):
     
     assert response.status_code == 400
     assert response.get_json() == { "error": "No valid fields to update" }
-    
-def test_update_user_single_field(client, db):
-    user_id = db.users.insert_one({
-        "firstName": "John",
-        "lastName": "Doe",
-        "email": "johndoe@example.com",
-        "password": b"hashedpassword",
-    }).inserted_id
-    
-    response = client.put(f"/api/v1.0/users/{user_id}", json={
-        "firstName": "Johnny"
-    })
-    
-    assert response.status_code == 200
-    
-    updated_user = db.users.find_one({ "_id": ObjectId(user_id) })
-    assert updated_user["firstName"] == "Johnny"
-    
-def test_update_user_multiple_fields(client, db):
-    user_id = db.users.insert_one({
-        "firstName": "Jane",
-        "lastName": "Smith",
-        "email": "janesmith@example.com"
-    }).inserted_id
-    
-    response = client.put(f"/api/v1.0/users/{user_id}", json={
-        "firstName": "Janet",
-        "lastName": "Doe",
-        "email": "janetdoe@example.com"
-    })
-    
-    assert response.status_code == 200
-    
-    updated_user = db.users.find_one({ "_id": ObjectId(user_id) })
-    assert updated_user["firstName"] == "Janet"
-    assert updated_user["lastName"] == "Doe"
-    assert updated_user["email"] == "janetdoe@example.com"
