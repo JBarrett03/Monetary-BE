@@ -2,6 +2,7 @@ import random
 from flask import make_response, jsonify, request, Blueprint
 from datetime import datetime, UTC, timedelta
 from bson import ObjectId
+from blueprints.transactions.transactions import get_period_range
 import globals
 
 accounts_bp = Blueprint('accounts_bp', __name__)
@@ -60,6 +61,7 @@ def getUserAccount(userId, accountId):
         return make_response(jsonify({ "error": "Invalid user Id or Account Id" }), 400)
     
     account = get_accounts().find_one({"_id": ObjectId(accountId), "userId": ObjectId(userId)})
+    period = request.args.get("period")
     
     if account is None:
         return make_response(jsonify({ "error": "Account not found" }), 404)
@@ -74,25 +76,35 @@ def getUserAccount(userId, accountId):
         start_budget = budget["startDate"]
         end_budget = budget["endDate"]
         
-        transactions = list(globals.db.transactions.find({
+        transactions = {
             "accountId": ObjectId(accountId),
             "userId": ObjectId(userId),
-            "type": "debit"
-        }))
+            "direction": "out",
+            "status": "completed"
+        }
+        
+        if period:
+            try:
+                date = datetime.now(UTC)
+                start_budget, end_budget = get_period_range(period, date)
+                transactions["createdAt"] = { "$gte": start_budget, "$lte": end_budget}
+            except ValueError:
+                return make_response(jsonify({ "error": "Invalid period" }), 400)
+        else:
+            start_budget = budget["startDate"]
+            end_budget = budget["endDate"]
+        
+        transactions = list(globals.db.transactions.find(transactions))
         
         total_spent = 0.00
         
         for transaction in transactions:
-            if "createdAt" in transaction:
-                created_at = transaction["createdAt"]
-                if start_budget <= created_at <= end_budget:
-                    total_spent += float(transaction["amount"])
+            created_at = transaction.get("createdAt")
+            if created_at and start_budget <= created_at <= end_budget:
+                total_spent += float(transaction["amount"])
         
-        remaining_budget = float(budget["amount"]) - total_spent
+        remaining_budget = max(float(budget["amount"]) - total_spent, 0.00)
         
-        if remaining_budget < 0:
-            remaining_budget = 0.00
-            
         account["budgetSpent"] = total_spent
         account["budgetRemaining"] = remaining_budget
         
@@ -199,7 +211,9 @@ def addBalance(userId, accountId):
     new_transaction = {
         "userId": ObjectId(userId),
         "accountId": ObjectId(accountId),
+        "accountType": account["accountType"],
         "direction": "in",
+        "isBudgetTransaction": bool(account.get("budget")),
         "type": "credit",
         "amount": amount,
         "status": "completed",
@@ -353,8 +367,8 @@ def setBudget(userId, accountId):
     budget = {
         "amount": float(amount),
         "period": budget_period,
-        "startDate": start.isoformat(),
-        "endDate": end.isoformat()
+        "startDate": start,
+        "endDate": end
     }
     
     get_accounts().update_one(

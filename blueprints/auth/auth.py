@@ -3,6 +3,7 @@ from datetime import datetime, UTC, timedelta
 import globals
 import jwt
 import bcrypt
+from decorators import limiter
 
 auth_bp = Blueprint('auth_bp', __name__)
 
@@ -13,6 +14,7 @@ def get_blacklist():
     return globals.db.blacklist
 
 @auth_bp.route("/api/v1.0/login", methods=['POST'])
+@limiter.limit("30 per minute")
 def login():
     data = request.get_json()
     
@@ -25,8 +27,41 @@ def login():
     if not user:
         return make_response(jsonify({ "error": "Invalid email or password..." }), 401)
     
+    date = datetime.now(UTC)
+    
+    lock_until = user.get("lockUntil")
+    if lock_until and date < lock_until:
+        return make_response(jsonify({ "error": "Account is locked due to multiple failed login attempts. Please try again later..." }), 403)
+    
     if not bcrypt.checkpw(data["password"].encode('utf-8'), user["password"]):
-        return make_response(jsonify({ "error": "Invalid email or password..." }), 401)
+        
+        attempts = user.get("failedAttempts", 0)
+        incremented_attempts = attempts + 1
+        
+        if attempts >= 5:
+            get_users().update_one(
+                { "_id": user["_id"] },
+                { "$set": {
+                    "failedAttempts": 0,
+                    "lockUntil": date + timedelta(minutes=1)
+                }}
+            )
+        else:
+            get_users().update_one(
+                { "_id": user["_id"] },
+                { "$set": { "failedAttempts": incremented_attempts }}
+            )
+
+        return make_response(jsonify({ "error": "Account is temporarily locked due to multiple failed login attempts. Please try again later..." }), 403)
+    
+    get_users().update_one(
+        { "_id": user["_id"] },
+        { "$set": {
+            "failedAttempts": 0,
+            "lockUntil": None,
+            "lastLogin": date.isoformat() + "Z"
+        }}
+    )
     
     token = jwt.encode(
         {

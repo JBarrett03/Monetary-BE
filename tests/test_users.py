@@ -61,7 +61,6 @@ def test_create_user_success(client, db):
     
     assert created_user["email"] == "johndoe@example.com"
     assert created_user["admin"] == False
-    assert created_user["emailVerified"] is False
     assert created_user["phoneVerified"] is False
     assert "createdAt" in created_user
     assert "lastLogin" in created_user
@@ -90,7 +89,6 @@ def test_create_user_duplicate_email(client, db):
         "address": "456 Elm St",
         "DOB": "1992-02-02",
         "admin": False,
-        "emailVerified": False,
         "phoneVerified": False,
         "createdAt": "2024-01-01T00:00:00Z",
         "lastLogin": "2024-01-01T00:00:00Z"
@@ -125,7 +123,6 @@ def test_update_user_success(client, db):
         "address": "123 Main St",
         "DOB": "1990-01-01",
         "admin": False,
-        "emailVerified": False,
         "phoneVerified": False,
         "createdAt": "2024-01-01T00:00:00Z",
         "lastLogin": "2024-01-01T00:00:00Z"

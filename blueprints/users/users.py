@@ -60,6 +60,8 @@ def createUser():
         "admin": False,
         "emailVerified": False,
         "phoneVerified": False,
+        "failedAttempts": 0,
+        "lockUntil": None,
         "createdAt": datetime.now(UTC).isoformat() + "Z",
         "lastLogin": datetime.now(UTC).isoformat() + "Z"
     }
@@ -97,10 +99,27 @@ def updateUser(id):
         return make_response(jsonify({ "error": "User not found" }), 404)
     
     
-@users_bp.route("/api/v1.0/users/<string:id>", methods=['DELETE'])
-def deleteUser(id):
-    result = get_users().delete_one({ "_id": ObjectId(id) })
-    if result.deleted_count == 1:
-        return make_response(jsonify( {} ), 204)
-    else:
-        return make_response(jsonify({ "error": "Invalid user ID" }), 404)
+@users_bp.route("/api/v1.0/users/<string:id>/change-password", methods=['PUT'])
+def change_password(id):
+    if not ObjectId.is_valid(id):
+        return make_response(jsonify({ "error": "Invalid user ID" }), 400)
+    
+    data = request.get_json()
+    current_password = data.get("currentPassword")
+    new_password = data.get("newPassword")
+    
+    user = get_users().find_one({ "_id": ObjectId(id) })    
+    if not user:
+        return make_response(jsonify({ "error": "User not found..." }), 404)
+    
+    if not bcrypt.checkpw(current_password.encode('utf-8'), user["password"]):
+        return make_response(jsonify({ "error": "Current password is incorrect..." }), 401)
+    
+    new_hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+    
+    get_users().update_one(
+        { "_id": ObjectId(id) },
+        { "$set": { "password": new_hashed_password }}
+    )
+    
+    return make_response(jsonify({ "message": "Password changed successfully" }), 200)
