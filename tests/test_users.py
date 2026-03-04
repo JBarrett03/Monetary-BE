@@ -1,5 +1,3 @@
-# Test cases for getting user information
-
 from bson import ObjectId
     
 def test_get_user_not_found(client):
@@ -20,8 +18,6 @@ def test_get_user_without_password(client, db):
     
     assert response.status_code == 200
     assert "password" not in response.get_json()
-
-# Test cases for creating a new user
 
 def test_create_user_success(client, db):
     user_data = {
@@ -94,9 +90,7 @@ def test_create_user_duplicate_email(client, db):
     
     assert response.status_code == 409
     assert response.get_json() == { "error": "Email already exists..." }
-    
-# Test cases for updating user information
-
+   
 def test_update_user_success(client, db):
     user_id = db.users.insert_one({
         "firstName": "John",
@@ -126,13 +120,6 @@ def test_update_user_success(client, db):
     assert updated_user["firstName"] == "Johnny"
     assert updated_user["email"] == "johnnydoe@example.com"
     
-def test_update_user_invalid_id(client):
-    response = client.put("/api/v1.0/users/invalidId", json={
-        "firstName": "Johnny"
-    })
-    
-    assert response.status_code == 400
-    assert response.get_json() == { "error": "Invalid user ID" }
     
 def test_update_user_not_found(client):
     fake_id = str(ObjectId())

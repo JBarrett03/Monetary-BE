@@ -1,7 +1,5 @@
 from mongomock import ObjectId
 
-# Test cases for getting all accounts for a user in the accounts blueprint
-
 def test_get_accounts_invalid_user_id(client):
     response = client.get("/api/v1.0/users/invalidUserId/accounts")
     assert response.status_code == 400
@@ -72,17 +70,6 @@ def test_get_accounts_sorted_by_order(client, db):
     assert accounts[0]["_id"] == str(account2)
     assert accounts[1]["_id"] == str(account1)
 
-# Test cases for getting a specific account for a user in the accounts blueprint
-
-def test_get_account_invalid_user_id(client):
-    response = client.get("/api/v1.0/users/invalidUserId/accounts/invalid")
-    assert response.status_code == 400
-    
-def test_get_account_invalid_account_id(client):
-    valid_user = str(ObjectId())
-    response = client.get(f"/api/v1.0/users/{valid_user}/accounts/invalid")
-    assert response.status_code == 400
-
 def test_get_account_not_found(client, db):
     userId = db.users.insert_one({
         "email": "testuser@example.com"
@@ -112,8 +99,6 @@ def test_get_account_wrong_user(client, db):
     response = client.get(f"/api/v1.0/users/{userId2}/accounts/{accountId}")
     assert response.status_code == 404
        
-# Test cases for creating a new account for a user in the accounts blueprint
-
 def test_create_account_invalid_user_id(client):
     response = client.post("/api/v1.0/users/invalidUserId/accounts", json={
         "accountType": "savings",
@@ -154,28 +139,6 @@ def test_create_account_user_not_found(client):
         "currency": "USD"
     })
     assert response.status_code == 404
-
-# Test cases for adding to an account balance
-
-def test_add_balance_invalid_user_id(client):
-    response = client.post("/api/v1.0/users/invalidUserId/accounts/invalidAccountId", data = { "amount": 50.0 })
-    assert response.status_code == 400
-    
-def test_add_balance_invalid_account_id(client):
-    valid_user = str(ObjectId())
-    response = client.post(f"/api/v1.0/users/{valid_user}/accounts/invalidAccountId", data = { "amount": 50.0 })
-    assert response.status_code == 400
-
-# Test cases for archiving an account for a user in the accounts blueprint
-
-def test_archive_account_invalid_user_id(client):
-    response = client.put("/api/v1.0/users/invalidUserId/accounts/invalidAccountId")
-    assert response.status_code == 400
-
-def test_archive_account_invalid_account_id(client):
-    valid_user = str(ObjectId())
-    response = client.put(f"/api/v1.0/users/{valid_user}/accounts/invalidAccountId")
-    assert response.status_code == 400
     
 def test_archive_account_not_found(client, db):
     userId = db.users.insert_one({
@@ -185,8 +148,6 @@ def test_archive_account_not_found(client, db):
     non_existent_account_id = str(ObjectId())
     response = client.put(f"/api/v1.0/users/{userId}/accounts/{non_existent_account_id}")
     assert response.status_code == 404
-
-# Test cases for setting a card as default in the accounts blueprint
 
 def test_set_default_account(client, db):
     

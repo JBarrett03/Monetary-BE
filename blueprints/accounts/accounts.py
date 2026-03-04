@@ -39,50 +39,42 @@ def generate_expiry_date(years: int = 3):
         "formatted": formattedExpiryDate,
         "iso": iso_value
     }
+    
+def validate_object_ids(*ids):
+    return all(ObjectId.is_valid(i) for i in ids)
+
+def serialize_account(account):
+    account["_id"] = str(account["_id"])
+    account["userId"] = str(account["userId"])
+    return account
 
 @accounts_bp.route("/api/v1.0/users/<string:userId>/accounts", methods=['GET'])
 def getAllUserAccounts(userId):
-    if not ObjectId.is_valid(userId):
+    if not validate_object_ids(userId):
         return make_response(jsonify({ "error": "Invalid User Id" }), 400)
-    
     user_object_id = ObjectId(userId)
-    
-    data_to_return = []
-    for account in get_accounts().find({"userId": user_object_id, "status": { "$ne": "archived" }}).sort("order", 1):
-        account["_id"] = str(account["_id"])
-        account["userId"] = str(account["userId"])
-        data_to_return.append(account)
-        
+    data_to_return = [serialize_account(account) for account in get_accounts().find({"userId": user_object_id, "status": { "$ne": "archived" }}).sort("order", 1)]
     return make_response(jsonify(data_to_return), 200)
 
 @accounts_bp.route("/api/v1.0/users/<string:userId>/accounts/<string:accountId>", methods=['GET'])
 def getUserAccount(userId, accountId):
-    if not ObjectId.is_valid(userId) or not ObjectId.is_valid(accountId):
+    if not validate_object_ids(userId, accountId):
         return make_response(jsonify({ "error": "Invalid user Id or Account Id" }), 400)
-    
     account = get_accounts().find_one({"_id": ObjectId(accountId), "userId": ObjectId(userId)})
     period = request.args.get("period")
-    
     if account is None:
         return make_response(jsonify({ "error": "Account not found" }), 404)
-    
-    account["_id"] = str(account["_id"])
-    account["userId"] = str(account["userId"])
-    
+    account = serialize_account(account)
     if account.get("budget"):
-        
         budget = account["budget"]
-        
         start_budget = budget["startDate"]
         end_budget = budget["endDate"]
-        
         transactions = {
             "accountId": ObjectId(accountId),
             "userId": ObjectId(userId),
             "direction": "out",
             "status": "completed"
         }
-        
         if period:
             try:
                 date = datetime.now(UTC)
@@ -93,21 +85,15 @@ def getUserAccount(userId, accountId):
         else:
             start_budget = budget["startDate"]
             end_budget = budget["endDate"]
-        
         transactions = list(globals.db.transactions.find(transactions))
-        
         total_spent = 0.00
-        
         for transaction in transactions:
             created_at = transaction.get("createdAt")
             if created_at and start_budget <= created_at <= end_budget:
                 total_spent += float(transaction["amount"])
-        
         remaining_budget = max(float(budget["amount"]) - total_spent, 0.00)
-        
         account["budgetSpent"] = total_spent
         account["budgetRemaining"] = remaining_budget
-        
     return make_response(jsonify(account), 200)
 
 @accounts_bp.route("/api/v1.0/users/<string:userId>/accounts", methods=['POST'])

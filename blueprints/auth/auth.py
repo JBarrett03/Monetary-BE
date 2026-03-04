@@ -29,36 +29,11 @@ def login():
     
     date = datetime.now(UTC)
     
-    lock_until = user.get("lockUntil")
-    if lock_until and date < lock_until:
-        return make_response(jsonify({ "error": "Account is locked due to multiple failed login attempts. Please try again later..." }), 403)
-    
     if not bcrypt.checkpw(data["password"].encode('utf-8'), user["password"]):
-        
-        attempts = user.get("failedAttempts", 0)
-        incremented_attempts = attempts + 1
-        
-        if attempts >= 5:
-            get_users().update_one(
-                { "_id": user["_id"] },
-                { "$set": {
-                    "failedAttempts": 0,
-                    "lockUntil": date + timedelta(minutes=1)
-                }}
-            )
-        else:
-            get_users().update_one(
-                { "_id": user["_id"] },
-                { "$set": { "failedAttempts": incremented_attempts }}
-            )
-
-        return make_response(jsonify({ "error": "Account is temporarily locked due to multiple failed login attempts. Please try again later..." }), 403)
-    
+        return make_response(jsonify({ "error": "Invalid email or password..." }), 401)
     get_users().update_one(
         { "_id": user["_id"] },
         { "$set": {
-            "failedAttempts": 0,
-            "lockUntil": None,
             "lastLogin": date.isoformat() + "Z"
         }}
     )
@@ -66,8 +41,7 @@ def login():
     token = jwt.encode(
         {
             "userId": str(user["_id"]),
-            "admin": user.get("admin", False),
-            "exp": datetime.now(UTC) + timedelta(minutes=30)
+            "admin": user.get("admin", False)
         },
         globals.secret_key,
         algorithm='HS256'

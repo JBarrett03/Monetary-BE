@@ -274,3 +274,23 @@ def getCategorySummary(userId, accountId):
     ]
     
     return make_response(jsonify(response), 200)
+
+@transactions_bp.route("/api/v1.0/users/<string:userId>/transactions/recent", methods=['GET'])
+def getRecentTransactions(userId):
+    
+    if not ObjectId.is_valid(userId):
+        return make_response(jsonify({ "error": "Invalid User Id" }), 400)
+    
+    limit = int(request.args.get("limit", 5))
+    
+    transactions = list(globals.db.transactions.find({
+        "userId": ObjectId(userId),
+        "status": "completed"
+    }).sort("createdAt", -1).limit(limit))
+    
+    for transaction in transactions:
+        transaction["_id"] = str(transaction["_id"])
+        transaction["accountId"] = str(transaction["accountId"])
+        transaction["userId"] = str(transaction["userId"])
+        
+    return make_response(jsonify(transactions), 200)
