@@ -7,6 +7,7 @@ import globals
 from blueprints.accounts.accounts import accounts_bp
 from blueprints.users.users import users_bp
 from blueprints.transactions.transactions import transactions_bp
+from blueprints.auth.auth import auth_bp
 
 @pytest.fixture
 def db(monkeypatch):
@@ -25,6 +26,7 @@ def app(db):
     app.register_blueprint(accounts_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(transactions_bp)
+    app.register_blueprint(auth_bp)
     
     return app
 
